@@ -446,6 +446,54 @@ architecture" paragraphs, and the SI's worked NASA/Mars example:
     S2's and Q2's own sentences, links, and ovals still finish settling
     with margin to spare before the chunk changes again, rather than
     just trusting the arithmetic.
+- **On-canvas text was too small on mobile — reported directly, since
+  the legend card (fixed CSS `0.92rem`, device-independent) read fine
+  right next to it.** The root cause: every on-canvas font size derives
+  from `unit`, which scales with *board width* — and on a narrow,
+  portrait mobile viewport, the board's width is the full (narrow)
+  viewport width, unlike on a wider/landscape viewport where the board's
+  width is instead capped by its own aspect ratio and ends up
+  comfortably larger. `baseFontSize()` now floors the sizeMult=1
+  reference size at `16px`, used by the chart's own labels (`drawLabel`/
+  `drawMathExpr`'s default base) — on viewports where `unit*0.16` is
+  already above that, nothing changes; on narrow ones, it is not
+  allowed to shrink below it. The chart's own axis `sizeMult` values
+  were separately raised too (`0.68-0.82` to `0.85-1.0`) — the floor
+  alone still left them proportionally smaller than the main text, and
+  they're exactly what tells a reader "lower is better," so they need
+  to actually be legible, not just technically present.
+  - **First attempt at the logic sentences went the wrong way, reported
+    directly.** Applying that same `16px` floor to the sentences (Alice's,
+    Bob's, etc.) made the widest ones wide enough to run directly into
+    the fixed-position right column at the old `0.6` board-fraction —
+    fixed, at the time, by computing the right column's x *dynamically*
+    from the actual measured width of whichever left-column sentence was
+    widest. That technically stopped the overlap, but pushed the right
+    column much further right than before, leaving a large empty gap in
+    between and making the whole composition read as lopsided — the
+    candidate disc below, whose position never actually moved, now
+    *looked* off-center relative to the newly asymmetric text block
+    above it. Reverted: `bobPos()`/`q2Pos()` are back to the original
+    fixed `0.6` fraction, and sentences get their *own*, smaller floor —
+    `SENTENCE_MIN_PX = 12`, not `16` — chosen by solving directly for the
+    largest size at which the widest sentence ("It's raining and cold
+    and cloudy.") still fits, with margin, in the fixed gap between the
+    two original column positions on a ~360px-wide board (the narrowest
+    this piece is meant to support), rather than picked by eye.
+    `statementSizeFor()`/`statementFontSize()` use this smaller floor;
+    `drawStatement()` passes the resulting size to `drawLabel()` as an
+    explicit `sizeMult` (relative to `baseFontSize()`'s own, larger
+    floor) so the size actually rendered always matches the size that
+    was measured for the link-origin calculation. Sentences are still
+    meaningfully bigger than before (mobile: ~7.8px \u2192 12px, a ~54%
+    increase) — just not as large as the chart labels, which don't share
+    the same two-column horizontal constraint.
+  - Increasing the *chart's* label sizes, separately, pushed the `p_q`
+    axis label's own offset far enough down that on a short mobile
+    viewport (360×740) it started overlapping the legend card's own top
+    edge — caught by cropping and zooming into that exact region, not by
+    eye at a glance. Its offset was reduced (`unit * 0.46` back to
+    `unit * 0.34`) until a fresh crop showed clear separation.
 
 The legend text is deliberately self-contained: it never names Figure
 4(a), the SI, or NASA, and never cites the SI's specific numbers (2

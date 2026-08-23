@@ -600,10 +600,28 @@
     if (progress < 1) drawGlow(tipX, tipY, unit * 0.05, c, alpha);
   }
 
+  // Base font size for on-canvas text (the sizeMult=1 reference size),
+  // floored in absolute CSS-pixel-equivalent terms. `unit` scales with
+  // board *width*, and on a narrow, portrait mobile viewport the board's
+  // width is the full (narrow) viewport width -- so unit, and every font
+  // size derived from it, gets small there even though the piece reads
+  // fine on wider/landscape viewports where the board's width is instead
+  // capped by its own aspect ratio. Reported directly (logic sentences
+  // were unreadably small on a phone, next to the legend card's own
+  // fixed, device-independent 0.92rem). Smaller-sizeMult elements (chart
+  // axis ticks, etc.) still scale down proportionally from this floored
+  // reference, preserving relative size hierarchy, just at an overall
+  // larger, legible scale; on wide viewports where unit*0.16 already
+  // exceeds the floor, this changes nothing.
+  const LABEL_BASE_MIN_PX = 16;
+  function baseFontSize() {
+    return Math.max(unit * 0.16, LABEL_BASE_MIN_PX);
+  }
+
   function drawLabel(text, x, y, alpha, align, opts) {
     if (alpha <= 0) return 0;
     opts = opts || {};
-    const size = unit * 0.16 * (opts.sizeMult || 1);
+    const size = baseFontSize() * (opts.sizeMult || 1);
     const lineHeight = size * 1.35;
     ctx.save();
     ctx.font = `${size}px ${FONT_FAMILY}`;
@@ -655,7 +673,7 @@
   function drawMathExpr(segments, x, yBaseline, alpha, align, opts) {
     if (alpha <= 0) return 0;
     opts = opts || {};
-    const baseSize = unit * 0.16 * (opts.sizeMult || 1);
+    const baseSize = baseFontSize() * (opts.sizeMult || 1);
     ctx.save();
     ctx.textBaseline = "alphabetic";
     ctx.shadowColor = rgbCss(opts.glowColor || SEED_GLOW, alpha * 0.7);
@@ -770,8 +788,25 @@
   // ---- Chapters 0-1: Alice's and Bob's sentences, each linked to its own
   // kernel by a growing line -- same technique as piece one's intro, now
   // used to establish two *different* (but nested) kernels instead of one.
+  //
+  // Sentences get their own, smaller floor than baseFontSize()'s general
+  // one (16px): they sit two-to-a-row in fixed columns (see bobPos()),
+  // and the widest one ("It's raining and cold and cloudy.") has to fit,
+  // with a small gap to spare, in the space between the left column's
+  // start and the right column's start on the narrowest board this piece
+  // is meant to support (~360px) -- solved for directly (measured width
+  // scales linearly with font size), not picked by eye. Using
+  // baseFontSize()'s own, larger floor here would push the right column
+  // out to a much wider gap to avoid overlap, unbalancing the whole
+  // layout -- exactly what an earlier version of this fix did, reported
+  // directly as making the candidate disc below look off-center.
+  const SENTENCE_MIN_PX = 12;
+  function statementFontSize() {
+    return Math.max(unit * 0.16, SENTENCE_MIN_PX);
+  }
+
   function statementSizeFor(text) {
-    const size = unit * 0.16;
+    const size = statementFontSize();
     ctx.save();
     ctx.font = `${size}px ${FONT_FAMILY}`;
     const w = ctx.measureText(text).width;
@@ -783,6 +818,16 @@
     return { x: board.bx + board.bw * 0.08, y: board.by + board.bh * 0.03 };
   }
 
+  // Fixed columns, same fractions as the original layout -- a dynamic,
+  // width-based right column (an earlier version of this fix) pushed Bob's
+  // and Q2's short sentences much further right to clear the *longest*
+  // possible left sentence, leaving a large dead gap in between and
+  // making the whole composition read as lopsided (reported directly: the
+  // candidate disc below no longer looked centered relative to it). Fixed
+  // positions, close together, read as balanced the way they always did;
+  // `statementFontSize()` below is capped at whatever size still fits the
+  // widest sentence in this fixed gap, rather than letting the gap grow
+  // to fit an arbitrarily large font.
   function bobPos() {
     return { x: board.bx + board.bw * 0.6, y: board.by + board.bh * 0.03 };
   }
@@ -805,7 +850,11 @@
   function drawStatement(text, pos, appear, sentenceFadeAlpha) {
     if (appear <= 0 || sentenceFadeAlpha <= 0) return null;
     const { size, w } = statementSizeFor(text);
-    drawLabel(text, pos.x, pos.y, appear * sentenceFadeAlpha * 0.92);
+    // sizeMult passed explicitly so the size drawLabel actually renders
+    // at matches statementFontSize() above, not baseFontSize()'s own
+    // (larger) floor -- otherwise the measured width `w` (used for the
+    // link origin below) would silently stop matching what's drawn.
+    drawLabel(text, pos.x, pos.y, appear * sentenceFadeAlpha * 0.92, undefined, { sizeMult: size / baseFontSize() });
     return { x: pos.x + w / 2, y: pos.y + size }; // middle, below -- the link's origin
   }
 
@@ -1026,12 +1075,17 @@
     // "cost," not just "bits" -- without it, nothing on the axis itself
     // says which direction is better; "lower is cheaper" has to be
     // inferred from context rather than read directly off the chart.
-    drawLabel("cost (bits)", rect.x - unit * 0.06, rect.y - unit * 0.02, appear * 0.8, "left", { sizeMult: 0.72 });
-    drawLabel("1", rect.x - unit * 0.14, toPx(PS_EXAMPLE, 1).y, appear * 0.7, "right", { sizeMult: 0.68 });
-    drawLabel("0", rect.x - unit * 0.14, toPx(PS_EXAMPLE, 0).y - unit * 0.09, appear * 0.7, "right", { sizeMult: 0.68 });
-    drawMathExpr(MATH_PS, toPx(PS_EXAMPLE, 0).x, rect.y + rect.h + unit * 0.19, appear * 0.75, "center", { sizeMult: 0.72 });
-    drawLabel("1", toPx(1, 0).x, rect.y + rect.h + unit * 0.02, appear * 0.75, "center", { sizeMult: 0.68 });
-    drawMathExpr(MATH_PQ, rect.x + rect.w * 0.5, rect.y + rect.h + unit * 0.4, appear * 0.85, "center", { sizeMult: 0.82 });
+    // sizeMult values below were increased (from 0.68-0.82 to 0.85-1.0)
+    // alongside baseFontSize()'s own new floor -- reported directly as
+    // still too small even once the floor made everything else legible;
+    // the axis labels are exactly what tells a reader "lower is better,"
+    // so they need to actually be read, not just technically present.
+    drawLabel("cost (bits)", rect.x - unit * 0.06, rect.y - unit * 0.05, appear * 0.8, "left", { sizeMult: 0.85 });
+    drawLabel("1", rect.x - unit * 0.18, toPx(PS_EXAMPLE, 1).y, appear * 0.7, "right", { sizeMult: 0.85 });
+    drawLabel("0", rect.x - unit * 0.18, toPx(PS_EXAMPLE, 0).y - unit * 0.1, appear * 0.7, "right", { sizeMult: 0.85 });
+    drawMathExpr(MATH_PS, toPx(PS_EXAMPLE, 0).x, rect.y + rect.h + unit * 0.22, appear * 0.75, "center", { sizeMult: 0.9 });
+    drawLabel("1", toPx(1, 0).x, rect.y + rect.h + unit * 0.02, appear * 0.75, "center", { sizeMult: 0.85 });
+    drawMathExpr(MATH_PQ, rect.x + rect.w * 0.5, rect.y + rect.h + unit * 0.34, appear * 0.85, "center", { sizeMult: 1.0 });
 
     // "send Q outright": H_bin(p_q), a real curve over p_q in [p_s, 1].
     // The curve fades in quickly near the start of its own chapter, so
