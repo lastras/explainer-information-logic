@@ -462,32 +462,80 @@ architecture" paragraphs, and the SI's worked NASA/Mars example:
   alone still left them proportionally smaller than the main text, and
   they're exactly what tells a reader "lower is better," so they need
   to actually be legible, not just technically present.
-  - **First attempt at the logic sentences went the wrong way, reported
-    directly.** Applying that same `16px` floor to the sentences (Alice's,
-    Bob's, etc.) made the widest ones wide enough to run directly into
-    the fixed-position right column at the old `0.6` board-fraction —
-    fixed, at the time, by computing the right column's x *dynamically*
-    from the actual measured width of whichever left-column sentence was
-    widest. That technically stopped the overlap, but pushed the right
-    column much further right than before, leaving a large empty gap in
-    between and making the whole composition read as lopsided — the
-    candidate disc below, whose position never actually moved, now
-    *looked* off-center relative to the newly asymmetric text block
-    above it. Reverted: `bobPos()`/`q2Pos()` are back to the original
-    fixed `0.6` fraction, and sentences get their *own*, smaller floor —
-    `SENTENCE_MIN_PX = 12`, not `16` — chosen by solving directly for the
-    largest size at which the widest sentence ("It's raining and cold
-    and cloudy.") still fits, with margin, in the fixed gap between the
-    two original column positions on a ~360px-wide board (the narrowest
-    this piece is meant to support), rather than picked by eye.
-    `statementSizeFor()`/`statementFontSize()` use this smaller floor;
-    `drawStatement()` passes the resulting size to `drawLabel()` as an
-    explicit `sizeMult` (relative to `baseFontSize()`'s own, larger
-    floor) so the size actually rendered always matches the size that
-    was measured for the link-origin calculation. Sentences are still
-    meaningfully bigger than before (mobile: ~7.8px \u2192 12px, a ~54%
-    increase) — just not as large as the chart labels, which don't share
-    the same two-column horizontal constraint.
+  - **Getting the logic sentences right took three attempts, each
+    reported directly.**
+    1. Applying that same `16px` floor to the sentences (Alice's, Bob's,
+       etc.) made the widest ones wide enough to run directly into the
+       fixed-position right column at the old `0.6` board-fraction —
+       fixed, at the time, by computing the right column's x
+       *dynamically* from the actual measured width of whichever
+       left-column sentence was widest. That technically stopped the
+       overlap, but pushed the right column much further right than
+       before, leaving a large empty gap in between and making the whole
+       composition read as lopsided — the candidate disc below, whose
+       position never actually moved, now *looked* off-center relative
+       to the newly asymmetric text block above it.
+    2. Reverted to the original fixed `0.6` column fraction, and gave
+       sentences their own, smaller floor (`SENTENCE_MIN_PX = 12`)
+       chosen by solving for the largest single-line size that still
+       fits the widest sentence in that fixed gap on a ~360px-wide
+       board. Technically correct, but barely bigger than the original
+       at all — reported directly, again, as "just as small."
+    3. The actual fix: let the wide sentences *wrap* onto two lines
+       within a column defined by *width* (`SENTENCE_COL_FRAC = 0.44`),
+       not by a hard-coded second x-coordinate — the same font that's
+       too wide for half a phone screen on one line fits easily across
+       two, so the column no longer needs to widen to make room, and the
+       lopsided-composition problem from attempt 1 doesn't recur.
+       `bobPos()`/`q2Pos()` are now `alicePos().x` plus
+       `SENTENCE_COL_FRAC` plus a small gap, rather than a second
+       independent fraction. `drawStatement()` checks whether a given
+       sentence's own measured width actually exceeds the column before
+       wrapping it (so short sentences like "It's cold." stay single-line
+       and keep their own true center for the link origin — using the
+       full column's center for those would leave the link appearing to
+       start from empty space well to their right). The second sentence
+       row (S2/Q2) is positioned *dynamically*, right after however tall
+       the first row (Alice/Bob) actually renders — one line where that
+       fits, two where it wraps — via `row1BlockHeight()`, rather than at
+       a fixed fraction that assumed a fixed, single-line height.
+       `SENTENCE_MIN_PX`/`SENTENCE_MAX_PX` (both `13`) keep the sentence
+       font in a narrow, fully solved-for range regardless of board
+       width — see the next bullet for why a *ceiling*, not just a
+       floor, turned out to matter too. Sentences are now meaningfully
+       bigger than the original on every board width tested (mobile:
+       ~7.8px → 13px, a ~67% increase), using wrapping rather than extra
+       width to get there.
+    4. Solving the mobile-width problem introduced a *new* one on
+       desktop-width boards, caught only by screenshotting a 900×900
+       viewport specifically (none of the mobile-width checks that
+       motivated this fix would have caught it): the recalled Alice row
+       and the new S2 row now sat close enough together, vertically,
+       that Alice's own link — a straight line toward the diagram,
+       passing directly below her own row on its way there — swept
+       through the horizontal span of S2's text sitting in that same
+       region. Not a link-crossing-link problem (S2's own "west point"
+       target, from an earlier round, still correctly keeps the two
+       *links* apart) but a link-crossing-*text* one. Diagnosed by
+       temporarily exposing the actual computed coordinates (a
+       `window.__DEBUG` hook read back via Puppeteer) rather than
+       continuing to hand-calculate them, which had already produced at
+       least one wrong conclusion along the way (an early hand-check
+       used S1's *query* radius where it should have used S1's own,
+       smaller radius, throwing off every downstream estimate). Fixed by
+       solving directly for the row-2 gap and the sentence font size
+       together: `SENTENCE_MAX_PX` caps sentence size at `13px` even on
+       boards wide enough that `unit * 0.16` alone would exceed it (so
+       the geometry below is solved for one consistent size, not
+       whatever size a given board width happens to produce), the
+       non-wrapped row gap widened to `unit * 1.0`, and `alicePos()`'s
+       own top margin tightened slightly to recover the vertical room
+       that widened gap costs — each solved for the specific margin
+       needed against the diagram's own top edge and against the
+       sweeping line's own position at that height, then confirmed
+       empirically (screenshots at both 360px and 900×900) rather than
+       trusted on arithmetic alone, given the arithmetic's own history
+       in this same round.
   - Increasing the *chart's* label sizes, separately, pushed the `p_q`
     axis label's own offset far enough down that on a short mobile
     viewport (360×740) it started overlapping the legend card's own top

@@ -621,8 +621,8 @@
   function drawLabel(text, x, y, alpha, align, opts) {
     if (alpha <= 0) return 0;
     opts = opts || {};
-    const size = baseFontSize() * (opts.sizeMult || 1);
-    const lineHeight = size * 1.35;
+    const size = opts.absoluteSize != null ? opts.absoluteSize : baseFontSize() * (opts.sizeMult || 1);
+    const lineHeight = size * (opts.lineHeightMult || 1.35);
     ctx.save();
     ctx.font = `${size}px ${FONT_FAMILY}`;
     ctx.textAlign = align || "left";
@@ -789,20 +789,53 @@
   // kernel by a growing line -- same technique as piece one's intro, now
   // used to establish two *different* (but nested) kernels instead of one.
   //
-  // Sentences get their own, smaller floor than baseFontSize()'s general
-  // one (16px): they sit two-to-a-row in fixed columns (see bobPos()),
-  // and the widest one ("It's raining and cold and cloudy.") has to fit,
-  // with a small gap to spare, in the space between the left column's
-  // start and the right column's start on the narrowest board this piece
-  // is meant to support (~360px) -- solved for directly (measured width
-  // scales linearly with font size), not picked by eye. Using
-  // baseFontSize()'s own, larger floor here would push the right column
-  // out to a much wider gap to avoid overlap, unbalancing the whole
-  // layout -- exactly what an earlier version of this fix did, reported
-  // directly as making the candidate disc below look off-center.
-  const SENTENCE_MIN_PX = 12;
+  // Getting this legible on mobile took three attempts, each one running
+  // into a wall the previous one didn't account for:
+  //   1. Just raising the font floor -- the widest sentence ("It's
+  //      raining and cold and cloudy.", 34 characters), on one line, at
+  //      any font size close to the legend card's own, is simply wider
+  //      than half a narrow phone screen; text ran into its neighbor.
+  //   2. Widening the gap between the two columns to make room -- fixed
+  //      the overlap, but unbalanced the whole composition (reported
+  //      directly: the candidate disc below, whose own position never
+  //      moved, started looking off-center relative to the now-lopsided
+  //      text above it).
+  //   3. Shrinking the font back down until it fit the *original*,
+  //      narrower gap on one line -- technically correct, but the
+  //      resulting size barely improved on the original at all (reported
+  //      directly, again).
+  // The actual fix combines two things neither previous attempt used:
+  // sentences wrap onto two lines within a fixed-*width* column (so the
+  // same font that's too wide for half a phone screen on one line fits
+  // across two, without needing a wider gap), and the second sentence
+  // row (S2/Q2) is positioned *dynamically*, right after however tall
+  // the first row (Alice/Bob) actually turns out to be -- 1 line where
+  // that fits, 2 where it doesn't -- rather than at a fixed fraction
+  // that assumed a fixed, single-line height. `SENTENCE_MIN_PX` (14) is
+  // still its own, smaller floor than baseFontSize()'s general one
+  // (16): even with wrapping, two full rows of up to two lines each
+  // still have to fit in the fixed space above the diagram before it
+  // starts, and 16px doesn't leave enough margin there to be safe: solved
+  // for directly (worst case: both rows wrap, on the narrowest supported
+  // board), not picked by eye.
+  const SENTENCE_MIN_PX = 13;
+  // Also *capped*, not just floored: on medium-wide boards, unit*0.16
+  // alone already lands close to 14px, at which size the recalled
+  // Alice/Bob row's own link -- a straight line toward the diagram,
+  // unavoidably passing near where the S2/Q2 row sits directly below --
+  // sweeps close enough to that row's own (correspondingly wider) text
+  // to visually run through it. A real regression, caught only by
+  // screenshotting a desktop-width viewport (900x900) specifically, not
+  // by any of the mobile-width checks that motivated the rest of this
+  // fix. Capping keeps this link's geometry (and the margins solved for
+  // below, in s2Pos()) consistent across every board width, rather than
+  // needing to be re-solved for whatever size unit*0.16 happens to be.
+  const SENTENCE_MAX_PX = 13;
+  const SENTENCE_LINE_HEIGHT_MULT = 1.15; // tighter than drawLabel's normal
+  // 1.35 -- every bit of vertical space matters once a row might be two
+  // lines tall, and this is still comfortably readable at this font size.
   function statementFontSize() {
-    return Math.max(unit * 0.16, SENTENCE_MIN_PX);
+    return Math.min(Math.max(unit * 0.16, SENTENCE_MIN_PX), SENTENCE_MAX_PX);
   }
 
   function statementSizeFor(text) {
@@ -814,48 +847,76 @@
     return { size, w };
   }
 
-  function alicePos() {
-    return { x: board.bx + board.bw * 0.08, y: board.by + board.bh * 0.03 };
+  const SENTENCE_COL_FRAC = 0.44;
+  const SENTENCE_COL_GAP_FRAC = 0.04;
+  function sentenceColWidth() {
+    return board.bw * SENTENCE_COL_FRAC;
   }
 
-  // Fixed columns, same fractions as the original layout -- a dynamic,
-  // width-based right column (an earlier version of this fix) pushed Bob's
-  // and Q2's short sentences much further right to clear the *longest*
-  // possible left sentence, leaving a large dead gap in between and
-  // making the whole composition read as lopsided (reported directly: the
-  // candidate disc below no longer looked centered relative to it). Fixed
-  // positions, close together, read as balanced the way they always did;
-  // `statementFontSize()` below is capped at whatever size still fits the
-  // widest sentence in this fixed gap, rather than letting the gap grow
-  // to fit an arbitrarily large font.
+  // How tall the first sentence row (Alice/Bob) actually renders, right
+  // now, given the current board width -- 1 line where Alice's own
+  // sentence (the longer of the two roles that share this row's height)
+  // fits the column, 2 where it wraps.
+  function row1BlockHeight() {
+    const { w } = statementSizeFor(ALICE_STATEMENT);
+    const lines = w > sentenceColWidth() ? 2 : 1;
+    return lines * statementFontSize() * SENTENCE_LINE_HEIGHT_MULT;
+  }
+
+  function alicePos() {
+    return { x: board.bx + board.bw * 0.06, y: board.by + board.bh * 0.01 };
+  }
+
   function bobPos() {
-    return { x: board.bx + board.bw * 0.6, y: board.by + board.bh * 0.03 };
+    return { x: board.bx + board.bw * (0.06 + SENTENCE_COL_FRAC + SENTENCE_COL_GAP_FRAC), y: board.by + board.bh * 0.02 };
   }
 
   // A second row, directly below Alice's/Bob's own -- same column, same
   // role (S under S, Q under Q) -- since scenario 2's sentences need to
   // coexist on screen with a *recalled* Alice/Bob, not replace them.
+  // Positioned dynamically, right after row 1's own actual height (see
+  // row1BlockHeight()), plus a gap that's *itself* only as tight as
+  // actually necessary: small when row 1 had to wrap (mobile, where
+  // vertical space above the diagram is genuinely tight), generous
+  // otherwise. A single small gap applied unconditionally pulled the two
+  // rows close enough on wider boards -- where row 1 never wraps and
+  // there was no space pressure to justify it -- that Alice's and S2's
+  // links started crossing each other, a real regression caught only by
+  // screenshotting a desktop-width viewport, not by the mobile checks
+  // that motivated this in the first place.
   function s2Pos() {
-    return { x: board.bx + board.bw * 0.08, y: board.by + board.bh * 0.11 };
+    const wraps = statementSizeFor(ALICE_STATEMENT).w > sentenceColWidth();
+    const gap = wraps ? unit * 0.08 : unit * 1.0;
+    return { x: board.bx + board.bw * 0.06, y: alicePos().y + row1BlockHeight() + gap };
   }
 
   function q2Pos() {
-    return { x: board.bx + board.bw * 0.6, y: board.by + board.bh * 0.11 };
+    return { x: board.bx + board.bw * (0.06 + SENTENCE_COL_FRAC + SENTENCE_COL_GAP_FRAC), y: s2Pos().y };
   }
 
   function candidatePos() {
     return { x: board.bx + board.bw * 0.5, y: board.by + board.bh * 0.46 };
   }
 
-  function drawStatement(text, pos, appear, sentenceFadeAlpha) {
+  // `maxWidth` is the column's own allocated width, in pixels -- always
+  // passed, but only actually triggers wrapping in drawLabel() when a
+  // sentence's own single-line width exceeds it (checked here first, so
+  // short sentences like "It's cold." never wrap and keep their own,
+  // narrower true width for the link-origin calculation below; using the
+  // full column width for those would leave the link appearing to start
+  // from empty space well to the right of the actual, short text).
+  function drawStatement(text, pos, appear, sentenceFadeAlpha, maxWidth) {
     if (appear <= 0 || sentenceFadeAlpha <= 0) return null;
     const { size, w } = statementSizeFor(text);
-    // sizeMult passed explicitly so the size drawLabel actually renders
-    // at matches statementFontSize() above, not baseFontSize()'s own
-    // (larger) floor -- otherwise the measured width `w` (used for the
-    // link origin below) would silently stop matching what's drawn.
-    drawLabel(text, pos.x, pos.y, appear * sentenceFadeAlpha * 0.92, undefined, { sizeMult: size / baseFontSize() });
-    return { x: pos.x + w / 2, y: pos.y + size }; // middle, below -- the link's origin
+    const alpha = appear * sentenceFadeAlpha * 0.92;
+    const wraps = maxWidth != null && w > maxWidth;
+    const blockHeight = drawLabel(text, pos.x, pos.y, alpha, undefined, {
+      absoluteSize: size,
+      lineHeightMult: SENTENCE_LINE_HEIGHT_MULT,
+      maxWidth: wraps ? maxWidth : undefined,
+    });
+    const originX = wraps ? pos.x + maxWidth / 2 : pos.x + w / 2;
+    return { x: originX, y: pos.y + (blockHeight || size) }; // middle, below -- the link's origin
   }
 
   // ---- The central Venn proof -----------------------------------------------
@@ -868,7 +929,7 @@
     // Ch.0: Alice's sentence, linked to S1.
     const aliceAppear = smoothstep(0, CH.aliceEnd - 0.02, t);
     const sentenceFade = 1 - smoothstep(CH.relabelEnd - 0.04, CH.relabelEnd, t);
-    const aliceLinkFrom = drawStatement(ALICE_STATEMENT, alicePos(), aliceAppear, sentenceFade);
+    const aliceLinkFrom = drawStatement(ALICE_STATEMENT, alicePos(), aliceAppear, sentenceFade, sentenceColWidth());
 
     const pointsFade = 1 - smoothstep(0.02, 0.05, t);
     const linkP = smoothstep(0.015, CH.aliceEnd, t);
@@ -911,7 +972,7 @@
 
     // Ch.1: Bob's weaker sentence, linked to Q1 (which grows around S1).
     const bobAppear = smoothstep(CH.aliceEnd, CH.bobEnd - 0.02, t);
-    const bobLinkFrom = drawStatement(BOB_STATEMENT, bobPos(), bobAppear, sentenceFade);
+    const bobLinkFrom = drawStatement(BOB_STATEMENT, bobPos(), bobAppear, sentenceFade, sentenceColWidth());
     const q1Appear = smoothstep(CH.aliceEnd + 0.01, CH.bobEnd, t);
     if (q1Appear > 0) {
       // Highlighted in sync with the chart's H_bin(p_q) curve (same
@@ -948,9 +1009,9 @@
     // piece moves on to generalizing past any one sentence, and all the
     // sentence annotations clear together to make room for the tile.
     const recallFade = captionAlpha(t, CH.doBetterEnd, CH.doBetterEnd + 0.02, CH.candidateStatementEnd, CH.candidateStatementEnd + 0.02);
-    const aliceRecallFrom = drawStatement(ALICE_STATEMENT, alicePos(), 1, recallFade);
+    const aliceRecallFrom = drawStatement(ALICE_STATEMENT, alicePos(), 1, recallFade, sentenceColWidth());
     if (aliceRecallFrom) drawGrowingLink(aliceRecallFrom, s1Target, 1, recallFade, SEED_GLOW);
-    const bobRecallFrom = drawStatement(BOB_STATEMENT, bobPos(), 1, recallFade);
+    const bobRecallFrom = drawStatement(BOB_STATEMENT, bobPos(), 1, recallFade, sentenceColWidth());
     if (bobRecallFrom) {
       const bobRecallTarget = { x: q1.x, y: q1.y - rQ1 };
       drawGrowingLink(bobRecallFrom, bobRecallTarget, 1, recallFade, CHART_Q_COLOR);
@@ -975,7 +1036,7 @@
     const scen2SentenceFade = 1 - smoothstep(CH.candidateStatementEnd, CH.candidateStatementEnd + 0.02, t);
 
     const s2SentenceAppear = smoothstep(CH.doBetterEnd, CH.doBetterEnd + 0.04, t);
-    const s2LinkFrom = drawStatement(S2_STATEMENT, s2Pos(), s2SentenceAppear, scen2SentenceFade);
+    const s2LinkFrom = drawStatement(S2_STATEMENT, s2Pos(), s2SentenceAppear, scen2SentenceFade, sentenceColWidth());
     const s2LinkP = smoothstep(CH.doBetterEnd + 0.005, CH.doBetterEnd + 0.055, t);
     if (s2LinkFrom && s2LinkP > 0) {
       // S2's own border -- but its *west* point (final horizontal
@@ -999,7 +1060,7 @@
     }
 
     const q2SentenceAppear = smoothstep(CH.doBetterEnd + 0.06, CH.doBetterEnd + 0.1, t);
-    const q2LinkFrom = drawStatement(Q2_STATEMENT, q2Pos(), q2SentenceAppear, scen2SentenceFade);
+    const q2LinkFrom = drawStatement(Q2_STATEMENT, q2Pos(), q2SentenceAppear, scen2SentenceFade, sentenceColWidth());
     const q2Appear = smoothstep(CH.doBetterEnd + 0.07, CH.scenario2End, t);
     if (q2Appear > 0) {
       // Highlighted during "This is what More means" (moreBoostAt), same
@@ -1206,7 +1267,7 @@
     if (appear <= 0) return;
     const pos = candidatePos();
     const { size, w } = statementSizeFor(CANDIDATE_STATEMENT);
-    drawLabel(CANDIDATE_STATEMENT, pos.x - w / 2, pos.y, appear * 0.92);
+    drawLabel(CANDIDATE_STATEMENT, pos.x - w / 2, pos.y, appear * 0.92, undefined, { absoluteSize: size });
 
     // Label, then link -- same order as piece one's own intro, so the
     // link's glowing tip is never hidden behind the text.
