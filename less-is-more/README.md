@@ -542,6 +542,56 @@ architecture" paragraphs, and the SI's worked NASA/Mars example:
     edge — caught by cropping and zooming into that exact region, not by
     eye at a glance. Its offset was reduced (`unit * 0.46` back to
     `unit * 0.34`) until a fresh crop showed clear separation.
+- **Three more issues, reported directly after the above was live on an
+  actual phone.**
+  1. **"cost (bits)" overlapped the chart's own axis line.** It was
+     anchored from its own *top*, at a fixed small offset above the
+     axis — fine when the label was small, but once its font grew (same
+     round as the sentence work above), enough of its own height now
+     fell *below* that anchor point to reach the axis line itself.
+     Switched to `anchor: "bottom"` — the label's bottom edge, not its
+     top, sits a fixed gap above the axis — so the visible gap no longer
+     depends on how tall the label happens to render at.
+  2. **The candidate disc read as slightly left of where the tile grid's
+     own middle column implied it should be.** A real, if small (0.0125
+     of a board-width), discrepancy: the tile's middle column was placed
+     at `CENTER_FX`, true board-center, but the actual candidate sitting
+     there is positioned by `vennToBoard()`, which offsets *everything*
+     by `-VENN_OFFSET.x * unit` to keep the Q1+Q2 composite (not just
+     Q1) centered — Q2's oval is the wider of the two shapes, so
+     centering the pair shifts Q1, and the candidate concentric with it,
+     left of true center. Invisible on its own; visible the moment other,
+     correctly-centered discs (the rest of the tile) sit right next to
+     it for comparison. Fixed by deriving the tile's middle column from
+     the same offset (`CENTER_FX - VENN_OFFSET.x / UNIT_DIVISOR`) rather
+     than from `CENTER_FX` directly, so both are computed from the one
+     underlying fact instead of one silently assuming the other away.
+  3. **Everything visibly stretched while scrolling, on an actual phone**
+     — never reproduced in any of this project's own headless-Chrome
+     checks, which don't simulate a mobile browser's own address bar
+     animating away as the page scrolls. That animation is exactly the
+     trigger: `.pinned`'s CSS height (`100vh`, in `style.css`) tracks the
+     browser's *largest* possible viewport (address bar hidden), while
+     `resize()` sizes the canvas's actual drawing buffer from
+     `window.innerHeight`, which tracks the *current* one — normally the
+     same number, but genuinely different while the address bar is
+     mid-animation, which scrolling itself triggers. When they disagree,
+     the canvas's CSS box (100% of `.pinned`) ends up a different size
+     than the buffer it was just sized for, and the browser stretches
+     the rendered pixels to fill the mismatch. Fixed two ways: `resize()`
+     now sets `.pinned`'s height explicitly, in pixels, from the exact
+     same `ch` value used for the drawing buffer, instead of leaving it
+     to `100vh`; and `frame()` additionally compares `window.innerHeight`
+     against its own last-seen value on every animation frame, calling
+     `resize()` again if it's changed even when no `resize` event fired
+     for it — a direct, low-cost check rather than trusting the browser
+     to always fire that event promptly during its own chrome animation.
+     Confirmed in Puppeteer by forcing a viewport height change mid-page
+     (simulating the address bar's own show/hide) and checking that the
+     canvas's drawing-buffer aspect ratio and its rendered CSS aspect
+     ratio stay exactly equal — not just that nothing looked obviously
+     wrong in a screenshot, since a mismatch here would be a stretch
+     factor, not a broken layout, and easy to miss by eye alone.
 
 The legend text is deliberately self-contained: it never names Figure
 4(a), the SI, or NASA, and never cites the SI's specific numbers (2

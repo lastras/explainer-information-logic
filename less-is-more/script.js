@@ -476,7 +476,20 @@
   // itself as a single thing repeating. The exclusion checks below are
   // kept as a safety net in case any of these bounds ever change.
   const TILE_COLS = 3;
-  const TILE_COL_FX = [0.2, CENTER_FX, 0.8];
+  // The middle column is *not* CENTER_FX -- the real candidate that sits
+  // there (see drawScalePopulation) is positioned by vennToBoard(), which
+  // offsets everything by -VENN_OFFSET.x*unit to keep the *whole*
+  // Q1+Q2 composite centered (Q2's oval, not Q1's circle, is the wider
+  // shape, so centering the pair means shifting Q1 -- and the candidate,
+  // concentric with it -- left of true board-center). Using CENTER_FX
+  // here instead put the tile's middle slot 0.0125 of a board-width to
+  // the *right* of where the candidate that actually sits there is drawn
+  // -- small, but enough to read as "the candidate looks a bit
+  // off-center" once there are other, correctly-centered discs right
+  // next to it to compare against. `UNIT_DIVISOR` converts unit-space
+  // (unit = board.bw / UNIT_DIVISOR) into the same board-fraction terms
+  // TILE_COL_FX is otherwise expressed in.
+  const TILE_COL_FX = [0.2, CENTER_FX - VENN_OFFSET.x / UNIT_DIVISOR, 0.8];
   const TILE_ROW_GAP = 0.17;
   const TILE_ROW_FY = [CENTER_FY - TILE_ROW_GAP, CENTER_FY, CENTER_FY + TILE_ROW_GAP];
   const TILE_ALIGNED_ROW = 1; // index into TILE_ROW_FY that equals CENTER_FY
@@ -499,6 +512,7 @@
 
   // ---- Canvas / DOM setup --------------------------------------------------
   const track = document.getElementById("scrollTrack");
+  const pinned = track.querySelector(".pinned");
   const canvas = document.getElementById("scene");
   const ctx = canvas.getContext("2d");
   const legendHeadingEl = document.getElementById("legendHeading");
@@ -539,6 +553,22 @@
     dpr = window.devicePixelRatio || 1;
     const cw = track.clientWidth || window.innerWidth;
     const ch = window.innerHeight;
+    // `.pinned`'s CSS height (100vh, in style.css) and `ch` here
+    // (window.innerHeight) are supposed to be the same number, but on
+    // mobile Safari/Chrome they can genuinely diverge *during a scroll*:
+    // `100vh` is pinned to the browser's largest possible viewport
+    // (address bar hidden), while `window.innerHeight` tracks whatever
+    // the *current* viewport actually is (address bar still showing, or
+    // mid-animation into/out of view) -- and the address bar's own
+    // show/hide is triggered by scrolling, exactly when this matters
+    // most. When they disagree, the canvas's own CSS box (100% of
+    // `.pinned`) ends up a different size than the drawing buffer just
+    // computed for `ch` below, and the browser stretches the rendered
+    // pixels to fit -- reported directly as "everything becomes
+    // elongated" while scrolling. Setting `.pinned`'s height explicitly,
+    // in pixels, from the same `ch` used for the drawing buffer keeps
+    // the two locked together regardless of what `100vh` is doing.
+    pinned.style.height = `${ch}px`;
     canvas.width = Math.round(cw * dpr);
     canvas.height = Math.round(ch * dpr);
     board = computeBoard(cw, ch);
@@ -1141,7 +1171,12 @@
     // still too small even once the floor made everything else legible;
     // the axis labels are exactly what tells a reader "lower is better,"
     // so they need to actually be read, not just technically present.
-    drawLabel("cost (bits)", rect.x - unit * 0.06, rect.y - unit * 0.05, appear * 0.8, "left", { sizeMult: 0.85 });
+    // anchor: "bottom" -- so the label's own *bottom* edge sits a fixed
+    // gap above the axis line, regardless of the label's own height at
+    // whatever size it renders at. The previous version anchored from
+    // its *top* instead, which put enough of the (now taller) text below
+    // that starting point to run directly into the axis line itself.
+    drawLabel("cost (bits)", rect.x - unit * 0.06, rect.y - unit * 0.1, appear * 0.8, "left", { sizeMult: 0.85, anchor: "bottom" });
     drawLabel("1", rect.x - unit * 0.18, toPx(PS_EXAMPLE, 1).y, appear * 0.7, "right", { sizeMult: 0.85 });
     drawLabel("0", rect.x - unit * 0.18, toPx(PS_EXAMPLE, 0).y - unit * 0.1, appear * 0.7, "right", { sizeMult: 0.85 });
     drawMathExpr(MATH_PS, toPx(PS_EXAMPLE, 0).x, rect.y + rect.h + unit * 0.22, appear * 0.75, "center", { sizeMult: 0.9 });
@@ -1372,7 +1407,19 @@
   // ---- Main loop: t is the only input -- nothing here is driven by
   // wall-clock time, so the scene is perfectly static whenever scrolling
   // stops, and scrubbing up/down is always smooth. --------------------------
+  let lastInnerHeight = window.innerHeight;
   function frame() {
+    // A direct check, not just the 'resize' listener below: on mobile,
+    // the browser's own address bar shows/hides *in response to*
+    // scrolling, which is exactly when a missed or delayed 'resize'
+    // event would be most visible (as the "elongation" resize() itself
+    // now guards against, once it actually runs). Comparing against the
+    // last known height every frame is negligible cost and catches the
+    // change even if the event itself doesn't fire promptly.
+    if (window.innerHeight !== lastInnerHeight) {
+      lastInnerHeight = window.innerHeight;
+      resize();
+    }
     const t = computeT();
     if (t !== lastT) render(t);
     updateLegend(t);
