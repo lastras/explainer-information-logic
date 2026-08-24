@@ -183,30 +183,65 @@
   // so the board and the legend both switch from following t to
   // following real game state (clicks) at that point. Scrolling further
   // still "works" (nothing breaks), it just has nothing left to drive.
+  // Chapters 1-8 (through tetraStart) are the same sequence as before,
+  // just rescaled by a fixed ~0.674 factor to make room, at the end of
+  // this same [0,1] tGame range, for two more chapters this piece didn't
+  // have yet: the tetrahedron's own reveal actually *rotating* into view
+  // (9), and a final summary card (10). Rescaling here -- unlike
+  // LEGACY_END's own phase-1-vs-phase-2 split -- deliberately does *not*
+  // preserve chapters 1-8's absolute scroll-pixel pacing: they simply
+  // play out a bit faster than before now, which is a fine trade given
+  // none of them are especially margin-sensitive (short prose cards, and
+  // an interactive game section that isn't scroll-paced at all once
+  // reached). Rescaling LEGACY_END itself instead, to add the *same*
+  // scroll room without touching chapters 1-8's own pacing, would also
+  // work, but touches the one split in this file most worth leaving
+  // alone once verified (phase 1's own delicate internal margins).
   const CHG = {
-    transitionEnd: 0.08, // 1: recap card; phase 1's own diagram/tile/chart
+    transitionEnd: 0.05, // 1: recap card; phase 1's own diagram/tile/chart
     // fade out together, one shot, no fade back in (captionAlpha with no
     // inStart..inEnd half -- the same one-shot pattern candidateEnd's own
     // sentence fade-outs already use elsewhere in this file).
-    doorsEnd: 0.2, // 2: "six doors, two that matter" -- prize, dud; the
+    doorsEnd: 0.13, // 2: "six doors, two that matter" -- prize, dud; the
     // 6 door-points fade in at their fixed positions
-    scoopEnd: 0.32, // 3: Alice has the scoop, but a limited channel
-    obviousEnd: 0.44, // 4: the most obvious option -- tell Bob
+    scoopEnd: 0.22, // 3: Alice has the scoop, but a limited channel
+    obviousEnd: 0.3, // 4: the most obvious option -- tell Bob
     // everything outright, ~4.9 bits
-    enoughEnd: 0.58, // 5: the realization -- Bob only needs a safe set
+    enoughEnd: 0.39, // 5: the realization -- Bob only needs a safe set
     // that includes the prize; naming the prize door alone already
     // works, ~2.58 bits, but there's something better still
-    signalEnd: 0.72, // 6: just 2 bits, actually -- Alice's 2-dot signal
+    signalEnd: 0.49, // 6: just 2 bits, actually -- Alice's 2-dot signal
     // fades in near the board
-    playArrive: 0.85, // 7: "Play, blind" -- the board stops following t
+    playArrive: 0.58, // 7: "Play, blind" -- the board stops following t
     // from here on; see the note above.
-    tetraStart: 0.92, // 8: the geometric reveal -- a real, drag-rotatable
-    // 3D tetrahedron, vertices labeled with Alice's own 4 codes, edges
-    // drawn as small cubes standing for the 6 doors. Reached only by
-    // scrolling *past* the interactive game (the legend explicitly
-    // invites this: "scroll down when you're ready"), not by any game
-    // action -- isGameInteractive() below stops being true once tGame
-    // reaches this point, same way it starts being true at playArrive.
+    tetraStart: 0.7, // 8: the geometric reveal begins -- the 2D board
+    // crossfades into the *same* 3D tetrahedron, viewed from directly
+    // above its own group-3 vertex (a real, computed rotation angle --
+    // solved once, in Node, from "which angle sends V3 to the +-Z axis"
+    // -- not an arbitrary starting pose): at that specific angle, the 6
+    // doors form a flat, non-overlapping hexagon around group 3's own
+    // vertex, the closest this exact regular tetrahedron ever gets to
+    // resembling the board's own 2D layout. It isn't a pixel-exact
+    // match -- the 2D layout's own two radii (0.5 and 0.16) exist
+    // specifically to keep the 4 groups' fans crossing-free (see
+    // GAME_R_SPOKE's own note), while a true regular tetrahedron's edge-
+    // midpoints are all equidistant from this axis -- so this is a
+    // crossfade to the *nearest honest equivalent*, not a literal
+    // continuation of the same coordinates. Isn't game-interactive from
+    // here on; see isGameInteractive's own note below. Left a wider gap
+    // after playArrive than the straight rescale above would have (0.12
+    // of this range instead of 0.04, about 48 scroll-vh instead of 16) --
+    // caught by computing the actual vh budget directly: the original
+    // felt like it could start the reveal before a reader had a real
+    // chance to play.
+    tetraSweepEnd: 0.85, // 9: the reveal itself -- flat squares thicken
+    // into real cubes as the shape rotates away from that aligned
+    // starting angle, scroll-driven (not yet a drag), specifically to
+    // make the 3D-ness of the thing undeniable before handing control
+    // over to the reader's own drag.
+    summaryStart: 0.93, // 10: the tetrahedron keeps sitting there,
+    // draggable, while the legend delivers this piece's own closing
+    // card -- the final resting state for the whole explainer.
   };
 
   // ---- Legend copy, synchronized to the same chapter boundaries as the
@@ -390,10 +425,23 @@
   // interactive game (never by a game action) -- see CHG's own note.
   // Not keyed to gamePhase at all: by the time anyone scrolls this far
   // they've already engaged with the game however much they wanted to.
+  // Covers both CHG.tetraStart..tetraSweepEnd (scroll-driven, not yet
+  // draggable) and tetraSweepEnd..summaryStart (draggable) without being
+  // wrong during either -- the text doesn't change again until
+  // CHG.summaryStart, well past both.
   const TETRA_REVEAL_TEXT = {
     heading: "Where this code comes from",
     body:
-      "This 4-entry list isn't arbitrary: it's the vertex structure of a tetrahedron. Each corner is one of Alice's own 4 codes; each edge \u2014 drawn here as a small cube \u2014 is one of the 6 doors, sitting exactly where its two codes meet. Drag to rotate it.",
+      "This 4-entry list isn't arbitrary: it's the vertex structure of a tetrahedron. Each corner is one of Alice's own 4 codes; each edge \u2014 drawn here as a small cube \u2014 is one of the 6 doors, sitting exactly where its two codes meet. Keep scrolling to see it rotate, then drag it yourself.",
+  };
+
+  // From CHG.summaryStart on -- this piece's own closing card, the
+  // final resting state for the whole explainer. The tetrahedron itself
+  // keeps sitting there, still draggable; only the legend text changes.
+  const SUMMARY_TEXT = {
+    heading: "Less is more",
+    body:
+      "A short, pre-agreed list \u2014 built once, to work across every possible situation at once \u2014 can prove more with less than any single, tailored message ever could. That's the whole idea, whether it's a weather report or a door with a prize behind it.",
   };
 
   // ---- Palette -------------------------------------------------------------
@@ -951,6 +999,22 @@
     return { x: cx + p.x * s, y: cy + p.y * s, depth: p.z };
   }
 
+  // The reveal's own starting angle: looking straight down group 3's own
+  // vertex (V3 = TETRA_VERTS_3D[3]) toward the opposite face -- solved
+  // once, in Node, for the angleX/angleY that send V3 to the +-Z axis
+  // (i.e. rotatePoint3D(V3, TETRA_ALIGN_X, TETRA_ALIGN_Y).x/.y both come
+  // out ~0). At this exact angle the 6 doors form a flat, non-
+  // overlapping hexagon -- the closest a genuine regular tetrahedron
+  // ever gets to resembling the 2D board's own layout (see CHG's own
+  // note on tetraStart for why it isn't a pixel-exact match). Where the
+  // reveal starts; TETRA_REST_X/Y (this file's original hand-picked
+  // "reads as 3D immediately" pose) is where the scroll-driven sweep
+  // ends and dragging takes over.
+  const TETRA_ALIGN_X = -Math.PI / 4;
+  const TETRA_ALIGN_Y = Math.atan(1 / Math.SQRT2);
+  const TETRA_REST_X = -0.35;
+  const TETRA_REST_Y = 0.6;
+
   // ---- Game state (never rendered directly -- only through the board's
   // own selected/opened point styling and the reveal labels) -----------
   let carDoor = 0;
@@ -969,11 +1033,17 @@
   // wall-clock time -- it changes only when the user actually drags, and
   // holds exactly still otherwise, the same "static unless something
   // changes" rule every other piece of interactive state in this file
-  // already follows. A gentle fixed starting angle (not front-on to any
-  // single vertex or edge) so the shape reads as 3D immediately, before
-  // anyone has dragged it at all.
-  let tetraRotX = -0.35;
-  let tetraRotY = 0.6;
+  // already follows. Starts at TETRA_REST_X/Y (this file's own hand-
+  // picked "reads as 3D immediately" pose) as a harmless default; the
+  // scroll-driven sweep (CHG.tetraStart..tetraSweepEnd) doesn't actually
+  // read these two variables at all -- it interpolates its own angles
+  // directly -- and overwrites them with that same TETRA_REST_X/Y pose
+  // exactly once, the first time tGame reaches tetraSweepEnd (see
+  // tetraSweepHandedOff below), so dragging picks up from wherever the
+  // sweep left off with no visible jump.
+  let tetraRotX = TETRA_REST_X;
+  let tetraRotY = TETRA_REST_Y;
+  let tetraSweepHandedOff = false;
   let tetraDragging = false;
   let tetraLastPointerX = 0;
   let tetraLastPointerY = 0;
@@ -1185,12 +1255,16 @@
         heading = g.heading;
         body = g.body;
         key = "phase-" + gamePhase;
-      } else {
+      } else if (tGame < CHG.summaryStart) {
         // Back to t-driven once more, and *not* keyed to gamePhase --
         // see CHG.tetraStart's own note above.
         heading = TETRA_REVEAL_TEXT.heading;
         body = TETRA_REVEAL_TEXT.body;
         key = "tetra";
+      } else {
+        heading = SUMMARY_TEXT.heading;
+        body = SUMMARY_TEXT.body;
+        key = "summary";
       }
     }
     if (key === legendChunkKey) return;
@@ -2274,17 +2348,17 @@
   // camera -- the same simple flat-shading model any basic 3D renderer
   // uses -- purely so the cube reads as a cube from any angle, not for
   // its own sake.
-  function drawTetraCube(doorIndex, cx, cy, scale, alpha) {
+  function drawTetraCube(doorIndex, cx, cy, scale, alpha, angleX, angleY, zHalf) {
     const center = DOOR_LOCAL_3D[doorIndex];
     const cornersRot = CUBE_CORNERS_UNIT.map((u) =>
       rotatePoint3D(
         {
           x: center.x + u.x * TETRA_CUBE_HALF,
           y: center.y + u.y * TETRA_CUBE_HALF,
-          z: center.z + u.z * TETRA_CUBE_HALF,
+          z: center.z + u.z * zHalf,
         },
-        tetraRotX,
-        tetraRotY
+        angleX,
+        angleY
       )
     );
     const cornersProj = cornersRot.map((p) => project3D(p, cx, cy, scale));
@@ -2324,16 +2398,17 @@
   // directly in binary -- the same encoding drawSignalIndicator already
   // decodes elsewhere, not a new one) and 6 edges, each edge a door,
   // drawn as a small cube sitting exactly where its two codes meet.
-  // Rotation is whatever the user has last dragged it to (tetraRotX/Y);
-  // nothing here depends on t at all beyond the one alpha fade-in.
-  function drawTetrahedronReveal(alpha) {
+  // angleX/angleY/cubeZHalf are supplied by drawGameScene, which decides
+  // whether they come from the scroll-driven sweep or the user's own
+  // drag -- this function is purely about rendering whatever it's given.
+  function drawTetrahedronReveal(alpha, angleX, angleY, cubeZHalf) {
     if (alpha <= 0) return;
     const c = gameToBoard(0, 0);
     const cx = c.x, cy = c.y;
     const scale = gameUnit * TETRA_SCALE_MULT;
 
-    const vertsRot = TETRA_VERTS_3D.map((v) => rotatePoint3D(v, tetraRotX, tetraRotY));
-    const doorsRot = DOOR_LOCAL_3D.map((d) => rotatePoint3D(d, tetraRotX, tetraRotY));
+    const vertsRot = TETRA_VERTS_3D.map((v) => rotatePoint3D(v, angleX, angleY));
+    const doorsRot = DOOR_LOCAL_3D.map((d) => rotatePoint3D(d, angleX, angleY));
 
     // Wireframe edges first -- always behind the vertices/cubes drawn
     // over them next.
@@ -2358,7 +2433,7 @@
         drawGlow(p.x, p.y, dotR, NEUTRAL, alpha, 2.4);
         drawLabel(item.index.toString(2).padStart(2, "0"), p.x, p.y - dotR * 2.8, alpha, "center", { sizeMult: 0.78 });
       } else {
-        drawTetraCube(item.index, cx, cy, scale, alpha);
+        drawTetraCube(item.index, cx, cy, scale, alpha, angleX, angleY, cubeZHalf);
       }
     }
   }
@@ -2387,7 +2462,31 @@
     }
     if (cheatsheetRevealed && fade2D > 0) drawCheatSheet(fade2D);
 
-    drawTetrahedronReveal(tetraAlpha);
+    // The sweep: scroll-driven rotation away from the aligned starting
+    // angle, and cubes thickening from flat, together making the shape's
+    // own 3D-ness undeniable before control passes to a drag. A state
+    // transition (the one-shot handoff to drag control) detected here,
+    // in the same top-level scene function that already detects
+    // render()'s own wasInteractive transition, rather than buried
+    // inside a supposedly-pure drawing function.
+    let tetraAngleX, tetraAngleY, tetraCubeZHalf;
+    if (tGame < CHG.tetraSweepEnd) {
+      const sweepProgress = smoothstep(CHG.tetraStart, CHG.tetraSweepEnd, tGame);
+      tetraAngleX = lerp(TETRA_ALIGN_X, TETRA_REST_X, sweepProgress);
+      tetraAngleY = lerp(TETRA_ALIGN_Y, TETRA_REST_Y, sweepProgress);
+      tetraCubeZHalf = lerp(0, TETRA_CUBE_HALF, sweepProgress);
+      tetraSweepHandedOff = false; // re-armed if scrolled back before the handoff
+    } else {
+      if (!tetraSweepHandedOff) {
+        tetraRotX = TETRA_REST_X;
+        tetraRotY = TETRA_REST_Y;
+        tetraSweepHandedOff = true;
+      }
+      tetraAngleX = tetraRotX;
+      tetraAngleY = tetraRotY;
+      tetraCubeZHalf = TETRA_CUBE_HALF;
+    }
+    drawTetrahedronReveal(tetraAlpha, tetraAngleX, tetraAngleY, tetraCubeZHalf);
   }
 
   // Called after every game-state change (a click or a button) -- game
@@ -2520,12 +2619,14 @@
   // for mouse, touch, and pen alike. setPointerCapture keeps delivering
   // move/up events to the canvas even if the pointer strays outside it
   // mid-drag, the standard way to implement a drag gesture without
-  // needing window-level listeners. Guarded by isTetraActive(), the
-  // mirror image of onCanvasClick's own isGameInteractive() guard, so
-  // the two interactions -- door clicks, tetrahedron drags -- can never
-  // fire in the same scene.
+  // needing window-level listeners. Gated on tGame >= tetraSweepEnd, not
+  // just isTetraActive(): dragging during the scroll-driven sweep itself
+  // would fight over control of tetraRotX/Y with values that aren't even
+  // being read yet (drawGameScene interpolates its own angles during the
+  // sweep) -- matches the legend's own "keep scrolling... then drag it
+  // yourself" ordering.
   function onTetraPointerDown(e) {
-    if (!isTetraActive(lastT)) return;
+    if (!isTetraActive(lastT) || tGameOf(lastT) < CHG.tetraSweepEnd) return;
     tetraDragging = true;
     tetraLastPointerX = e.clientX;
     tetraLastPointerY = e.clientY;
