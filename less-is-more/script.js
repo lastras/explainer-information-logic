@@ -166,22 +166,37 @@
 
   // Phase 2's own chapter boundaries, as a local t running 0->1 over the
   // *remaining* (1 - LEGACY_END) share of outer t -- see tGameOf() below.
-  // Chapters 1-3 (the storyboard's own numbering; phase 1 already used
-  // 0-10) are simple scroll-driven fades, same idiom as phase 1. Chapter
-  // 4 onward ("Play, blind") is deliberately *not* t-driven past
-  // `playArrive`: Round 1 -> cheat sheet -> Round 2 are choice-dependent,
-  // not a fixed sequence a scrollbar could represent, so the board and
-  // the legend both switch from following t to following real game state
-  // (clicks) at that point. Scrolling further still "works" (nothing
-  // breaks), it just has nothing left to drive.
+  // Chapters 1-6 (the storyboard's own numbering; phase 1 already used
+  // 0-10) are simple scroll-driven fades, same idiom as phase 1: a short
+  // story (chapters 1-3) formalizing "world"/"kernel"/"query" by example
+  // in this concrete setting -- the same way phase 1's own chapters 0-1
+  // formalized them via Alice's and Bob's sentences -- followed by the
+  // naive cost, then the actual 2-bit answer (chapters 4-5), then the
+  // board/signal arriving as something to act on (chapter 6). Chapter 7
+  // onward ("Play, blind") is deliberately *not* t-driven past
+  // `playArrive`: Round 1 -> cheat sheet -> Round 2 -> Less/More are
+  // choice-dependent, not a fixed sequence a scrollbar could represent,
+  // so the board and the legend both switch from following t to
+  // following real game state (clicks) at that point. Scrolling further
+  // still "works" (nothing breaks), it just has nothing left to drive.
   const CHG = {
-    transitionEnd: 0.12, // 1: recap card; phase 1's own diagram/tile/chart
-    // fade out together, one shot, no fade back in (captionAlpha with no
-    // inStart..inEnd half -- the same one-shot pattern candidateEnd's own
-    // sentence fade-outs already use elsewhere in this file).
-    boardEnd: 0.34, // 2: the 6 door-points fade in at their fixed positions
-    signalEnd: 0.56, // 3: Alice's 2-dot signal fades in near the board
-    playArrive: 0.66, // 4: "Play, blind" -- the board stops following t
+    storyEnd: 0.1, // 1: the story's own opening beat; phase 1's own
+    // diagram/tile/chart fade out together here, one shot, no fade back
+    // in (captionAlpha with no inStart..inEnd half -- the same one-shot
+    // pattern candidateEnd's own sentence fade-outs already use
+    // elsewhere in this file).
+    worldEnd: 0.24, // 2: "a world, here, is just which action is
+    // correct" -- the 6 door-points fade in at their fixed positions,
+    // standing for the 6 possible worlds this chapter just named
+    kernelEnd: 0.38, // 3: Alice's own kernel, by example (still just
+    // text -- the board stays neutral; showing *which* point is Alice's
+    // kernel here would spoil the game before it starts)
+    queryEnd: 0.52, // 4: the query Alice's task is to let Bob prove, by
+    // example
+    naiveCostEnd: 0.64, // 5: the obvious way costs ~2.58 bits
+    twoBitsEnd: 0.76, // 6: in fact, 2 bits suffice -- Alice's 2-dot
+    // signal fades in near the board
+    playArrive: 0.86, // 7: "Play, blind" -- the board stops following t
     // from here on; see the note above.
   };
 
@@ -192,12 +207,13 @@
   // Legend prose is deliberately plain-language and symbol-free: no raw
   // formulas (those stay properly typeset on the canvas, via
   // drawMathExpr, where they belong), no SI references or specific
-  // numbers borrowed from it (2 bits, four entries -- those belong to a
-  // worked example this piece hasn't built), and one consistent
-  // vocabulary throughout. The one deliberate exception: once the piece
-  // has fully demonstrated the result itself, "This is what Less means"
-  // names the paper's own theorem by name -- a reveal earned by that
-  // point, not a claim borrowed without showing the work.
+  // numbers borrowed from it (2 bits, four entries -- those belong to
+  // the SI's own worked example, only built later, in phase 2 below),
+  // and one consistent vocabulary throughout. The one deliberate
+  // exception: once the piece has fully demonstrated the result itself,
+  // "This is what Less means" names the paper's own theorem by name -- a
+  // reveal earned by that point, not a claim borrowed without showing
+  // the work.
   //   - these are logic sentences, never "descriptions"
   //   - a kernel is the collection of possible worlds consistent with a
   //     sentence -- "possible world" throughout, not a shifting mix of
@@ -296,34 +312,62 @@
   ];
 
   // ---- Phase 2's own legend copy -------------------------------------------
-  // Chapters 1-3, keyed to tGame (see tGameOf() below) the same way
-  // LEGEND_CHUNKS above is keyed to phase 1's own local t. Deliberately
-  // echoes phase 1's own vocabulary ("kernel," "short list") rather than
-  // introducing new terms for the same ideas -- this is the same
-  // mechanism, made concrete, not a new one.
+  // Chapters 1-6, keyed to tGame (see tGameOf() below) the same way
+  // LEGEND_CHUNKS above is keyed to phase 1's own local t. A short story,
+  // told in the same order phase 1 itself introduced these ideas
+  // (concrete example first, then its kernel, then the weaker query it
+  // entails) -- not asserted all at once, and not skipping straight to
+  // "here are six points." Deliberately echoes phase 1's own vocabulary
+  // ("world," "kernel," "query") rather than introducing new terms for
+  // the same ideas -- this is the same mechanism, made concrete, not a
+  // new one. The concrete numbers here (6 actions, 2.58 bits, 2 bits) are
+  // exactly what phase 1's own top comment deferred ("no SI references
+  // or specific numbers... those belong to a worked example this piece
+  // hasn't built") -- this is that worked example, finally built.
   const GAME_LEGEND_CHUNKS = [
     {
       from: 0,
-      heading: "Here's what this looks like, concretely",
+      heading: "A story, concretely",
       body:
-        "Suppose there are just six possible actions to choose from. Exactly one is correct, and exactly one is catastrophic. A target query, in a setting like this one, just means picking a demonstrably safe action.",
+        "Alice needs Bob to act safely \u2014 but there's no time to tell him everything she knows. Here's the same idea as before, told as a concrete story.",
     },
     {
-      from: CHG.transitionEnd,
-      heading: "Six actions, two that matter",
+      from: CHG.storyEnd,
+      heading: "What's a world, here?",
       body:
-        "Each of these six points is one of the six possible actions. Exactly one is safe, one is catastrophic \u2014 Alice knows which, you don't, yet.",
+        "Picture six possible actions. A world, in this story, is simply which one of the six is correct \u2014 six worlds, shown here as six points.",
     },
     {
-      from: CHG.boardEnd,
-      heading: "Alice's signal",
+      from: CHG.worldEnd,
+      heading: "Alice's kernel",
       body:
-        "Alice is continuously broadcasting a 2-bit signal, shown here as two small marks. It means nothing on its own \u2014 the same way a short pre-agreed list was needed before, it takes a shared list to decode this into anything useful.",
+        "Alice knows exactly which world is real: exactly one action is correct. Her kernel contains just that single action.",
+    },
+    {
+      from: CHG.kernelEnd,
+      heading: "The query Alice must let Bob prove",
+      body:
+        "Alice's task is to let Bob prove something weaker: that some specific action is safe, meaning not the catastrophic one. Five of the six actions satisfy that \u2014 only the catastrophic one doesn't.",
+    },
+    {
+      from: CHG.queryEnd,
+      heading: "The obvious way",
+      body: "Told outright, naming the one correct action among six costs about 2.58 bits.",
+    },
+    {
+      from: CHG.naiveCostEnd,
+      heading: "Just 2 bits, actually",
+      body:
+        "In fact, this can be done with only 2 bits: a short, pre-agreed list of four candidate answers, one of which is always guaranteed to work. Alice broadcasts which one continuously, shown here as two small marks.",
     },
   ];
 
-  // From chapter 4 on, the legend is keyed to the game's own state
+  // From chapter 7 on, the legend is keyed to the game's own state
   // (`gamePhase`) rather than to t -- see the CHG.playArrive note above.
+  // 'less'/'more' are reached only once the code has actually *won* a
+  // round (see recordOutcome) -- the same discipline phase 1 holds for
+  // its own "This is what Less/More means" cards: asserted only once
+  // demonstrated, not asserted up front.
   const GAME_PHASE_TEXT = {
     blind: {
       heading: "Play, blind",
@@ -337,6 +381,15 @@
     hinted: {
       heading: "Play, with the code",
       body: "Decode Alice's signal, open exactly that group's points, and win every time.",
+    },
+    less: {
+      heading: "This is what \u201CLess\u201D means",
+      body: "Two bits did it \u2014 less than the 2.58 bits naming the correct action outright would have taken.",
+    },
+    more: {
+      heading: "This is what \u201CMore\u201D means",
+      body:
+        "Decoding the signal doesn't just hand you the one correct action \u2014 it hands you three guaranteed-safe actions, the correct one among them. Bob ends up able to safely act on more than the one action strictly required.",
     },
   };
 
@@ -842,9 +895,14 @@
     else if (selectedDoors.size < MAX_SELECTABLE) selectedDoors.add(i);
     // The first real move after the cheat sheet is revealed -- not a
     // second click of the reveal button -- is what actually moves the
-    // legend from "here's the list" (ch.5) to "play with the code" (ch.6):
-    // an action, not a passive continuation.
+    // legend from "here's the list" to "play with the code": an action,
+    // not a passive continuation. Likewise, the first real move after
+    // "This is what Less means" has had its moment is what moves on to
+    // "This is what More means" -- see recordOutcome below for why
+    // "Less" is reached in the first place only once the code has
+    // actually won.
     if (gamePhase === "cheatsheet") gamePhase = "hinted";
+    else if (gamePhase === "less") gamePhase = "more";
     refreshGameUI();
   }
 
@@ -858,8 +916,17 @@
   // not a three-way split that softens it.
   function recordOutcome(foundCar, foundZonk) {
     lastRoundWin = foundCar && !foundZonk;
-    if (lastRoundWin) winTally++;
-    else lossTally++;
+    if (lastRoundWin) {
+      winTally++;
+      // "This is what Less means" is reached only once the code has
+      // actually won a round -- the same discipline phase 1 holds for
+      // its own "Less"/"More" cards (asserted only once demonstrated,
+      // never up front). A loss while playing with the code (following
+      // it incorrectly) leaves gamePhase at 'hinted' for another try.
+      if (gamePhase === "hinted") gamePhase = "less";
+    } else {
+      lossTally++;
+    }
   }
 
   function openSelected() {
@@ -892,6 +959,7 @@
     // standalone demo's own startNewRound() (`codebookSection.hidden =
     // !cheatsheetRevealed`).
     if (!cheatsheetRevealed) gamePhase = "blind";
+    else if (gamePhase === "less") gamePhase = "more"; // see toggleDoor's own note
     resetRound();
   }
 
@@ -2074,9 +2142,9 @@
   }
 
   function drawGameScene(tGame) {
-    const boardAppear = smoothstep(CHG.transitionEnd, CHG.boardEnd, tGame);
-    const signalAppear = smoothstep(CHG.boardEnd, CHG.signalEnd, tGame);
-    const playAppear = smoothstep(CHG.signalEnd, CHG.playArrive, tGame);
+    const boardAppear = smoothstep(CHG.storyEnd, CHG.worldEnd, tGame);
+    const signalAppear = smoothstep(CHG.naiveCostEnd, CHG.twoBitsEnd, tGame);
+    const playAppear = smoothstep(CHG.twoBitsEnd, CHG.playArrive, tGame);
 
     drawGameBoard(boardAppear);
     if (signalAppear > 0) {
@@ -2117,7 +2185,7 @@
     // applied to the *whole* old scene at once via a single composited
     // image rather than threaded through every one of its own alpha
     // parameters. See the LEGACY_END note above for why.
-    const legacyAlpha = tOuter < LEGACY_END ? 1 : 1 - smoothstep(0, CHG.transitionEnd, tGame);
+    const legacyAlpha = tOuter < LEGACY_END ? 1 : 1 - smoothstep(0, CHG.storyEnd, tGame);
     if (legacyAlpha > 0) {
       const mainCtx = ctx;
       legacyCtx.clearRect(0, 0, legacyCanvas.width, legacyCanvas.height);
