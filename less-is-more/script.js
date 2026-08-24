@@ -166,37 +166,49 @@
 
   // Phase 2's own chapter boundaries, as a local t running 0->1 over the
   // *remaining* (1 - LEGACY_END) share of outer t -- see tGameOf() below.
-  // Chapters 1-6 (the storyboard's own numbering; phase 1 already used
+  // Chapters 1-7 (the storyboard's own numbering; phase 1 already used
   // 0-10) are simple scroll-driven fades, same idiom as phase 1: a short
-  // story (chapters 1-3) formalizing "world"/"kernel"/"query" by example
-  // in this concrete setting -- the same way phase 1's own chapters 0-1
-  // formalized them via Alice's and Bob's sentences -- followed by the
-  // naive cost, then the actual 2-bit answer (chapters 4-5), then the
-  // board/signal arriving as something to act on (chapter 6). Chapter 7
-  // onward ("Play, blind") is deliberately *not* t-driven past
-  // `playArrive`: Round 1 -> cheat sheet -> Round 2 -> Less/More are
-  // choice-dependent, not a fixed sequence a scrollbar could represent,
-  // so the board and the legend both switch from following t to
-  // following real game state (clicks) at that point. Scrolling further
-  // still "works" (nothing breaks), it just has nothing left to drive.
+  // story formalizing "world"/"kernel"/"query" by a *concrete* example
+  // (chapters 3-5, with an actual example world highlighted green/red on
+  // the board -- see EXAMPLE_CORRECT_DOOR below) -- the same way phase
+  // 1's own chapters 0-1 formalized them via Alice's and Bob's concrete
+  // sentences, never in the abstract alone -- followed by the naive
+  // cost, then the actual 2-bit answer (chapters 6-7). Chapter 8 onward
+  // ("Play, blind") is deliberately *not* t-driven past `playArrive`:
+  // Round 1 -> cheat sheet -> Round 2 -> Less/More are choice-dependent,
+  // not a fixed sequence a scrollbar could represent, so the board and
+  // the legend both switch from following t to following real game
+  // state (clicks) at that point. Scrolling further still "works"
+  // (nothing breaks), it just has nothing left to drive.
   const CHG = {
-    storyEnd: 0.1, // 1: the story's own opening beat; phase 1's own
+    storyEnd: 0.08, // 1: the story's own opening beat; phase 1's own
     // diagram/tile/chart fade out together here, one shot, no fade back
     // in (captionAlpha with no inStart..inEnd half -- the same one-shot
     // pattern candidateEnd's own sentence fade-outs already use
     // elsewhere in this file).
-    worldEnd: 0.24, // 2: "a world, here, is just which action is
-    // correct" -- the 6 door-points fade in at their fixed positions,
-    // standing for the 6 possible worlds this chapter just named
-    kernelEnd: 0.38, // 3: Alice's own kernel, by example (still just
-    // text -- the board stays neutral; showing *which* point is Alice's
-    // kernel here would spoil the game before it starts)
-    queryEnd: 0.52, // 4: the query Alice's task is to let Bob prove, by
-    // example
-    naiveCostEnd: 0.64, // 5: the obvious way costs ~2.58 bits
-    twoBitsEnd: 0.76, // 6: in fact, 2 bits suffice -- Alice's 2-dot
+    setupEnd: 0.2, // 2: "six actions, one correct, one catastrophic" --
+    // the setting itself, established *before* the word "world" is
+    // used for it (an earlier version jumped straight to "a world is
+    // which one is correct," landing as a non sequitur, reported
+    // directly). The 6 door-points fade in here.
+    worldEnd: 0.32, // 3: *now* "a world, here, is which action is
+    // correct *and* which is catastrophic" lands -- the setting it
+    // refers to already exists on screen and in the legend's own
+    // preceding card.
+    kernelEnd: 0.46, // 4: Alice's own kernel, by a concrete example --
+    // one door highlighted green (correct), one red (catastrophic),
+    // and a small circle (cyan, matching kappa(S)'s own color from
+    // phase 1) around just the correct one
+    queryEnd: 0.6, // 5: the query Alice's task is to let Bob prove, by
+    // the same example -- a bigger circle (amber, matching kappa(Q)'s
+    // own color from phase 1) around every action except the red one
+    naiveCostEnd: 0.7, // 6: the obvious way costs ~2.58 bits -- the
+    // worked example's own highlight/circles fade out here, done having
+    // made their point, before the real (randomized, unspoiled) secret
+    // takes over for actual play
+    twoBitsEnd: 0.8, // 7: in fact, 2 bits suffice -- Alice's 2-dot
     // signal fades in near the board
-    playArrive: 0.86, // 7: "Play, blind" -- the board stops following t
+    playArrive: 0.9, // 8: "Play, blind" -- the board stops following t
     // from here on; see the note above.
   };
 
@@ -333,21 +345,26 @@
     },
     {
       from: CHG.storyEnd,
-      heading: "What's a world, here?",
+      heading: "Six actions, two that matter",
       body:
-        "Picture six possible actions. A world, in this story, is simply which one of the six is correct \u2014 six worlds, shown here as six points.",
+        "Picture six possible actions, shown here as six points. Exactly one is correct to take; exactly one would be catastrophic.",
+    },
+    {
+      from: CHG.setupEnd,
+      heading: "What's a world, here?",
+      body: "A world, in this story, is which action is correct \u2014 and which one is catastrophic.",
     },
     {
       from: CHG.worldEnd,
       heading: "Alice's kernel",
       body:
-        "Alice knows exactly which world is real: exactly one action is correct. Her kernel contains just that single action.",
+        "Here's an example world: say the green action is correct and the red one is catastrophic. Alice's kernel \u2014 the small circle \u2014 contains just the one correct action.",
     },
     {
       from: CHG.kernelEnd,
       heading: "The query Alice must let Bob prove",
       body:
-        "Alice's task is to let Bob prove something weaker: that some specific action is safe, meaning not the catastrophic one. Five of the six actions satisfy that \u2014 only the catastrophic one doesn't.",
+        "Alice's task is to let Bob prove something weaker: that some specific action is safe, meaning not the catastrophic one \u2014 the bigger circle, containing every action except the red one.",
     },
     {
       from: CHG.queryEnd,
@@ -854,6 +871,51 @@
             }
           }
         }
+      }
+    }
+  })();
+
+  // ---- The worked example (chapters "Alice's kernel"/"The query...")
+  // -------------------------------------------------------------------
+  // A single, fixed, hand-picked illustrative world -- entirely separate
+  // from the *real* secret (carDoor/zonkDoor, randomized below): this
+  // one exists purely to make "kernel"/"query" concrete before the real
+  // game starts, and fades out (see drawWorldExample's own alpha window)
+  // well before the real, unspoiled secret is ever put in play.
+  const EXAMPLE_CORRECT_DOOR = 0;
+  const EXAMPLE_CATASTROPHIC_DOOR = 2;
+  // Alice's kernel: a small circle around just the example's correct
+  // door, close enough to read as "just this one" but not so large it
+  // reaches any other door -- verified below, the same discipline as
+  // verifyGameGeometry() above.
+  const EXAMPLE_KERNEL_RADIUS = 0.11;
+  // The query: a bigger circle (an ellipse, off-center -- these 6 points
+  // aren't arranged with one clean circle separating any 5 of them from
+  // the 6th) around every door except the example's catastrophic one.
+  // cx/cy/rx/ry solved directly from DOOR_LOCAL's own 5 non-catastrophic
+  // points (bounding box + a fixed margin), not picked by eye.
+  const EXAMPLE_QUERY_ELLIPSE = { cx: 0, cy: -0.085, rx: 0.583, ry: 0.315 };
+
+  (function verifyWorldExampleGeometry() {
+    function distSq(a, b) {
+      const dx = a.x - b.x, dy = a.y - b.y;
+      return dx * dx + dy * dy;
+    }
+    const correct = DOOR_LOCAL[EXAMPLE_CORRECT_DOOR];
+    for (let i = 0; i < NUM_DOORS; i++) {
+      if (i === EXAMPLE_CORRECT_DOOR) continue;
+      if (Math.sqrt(distSq(correct, DOOR_LOCAL[i])) <= EXAMPLE_KERNEL_RADIUS) {
+        throw new Error("World example geometry check failed: kernel circle reaches door " + i);
+      }
+    }
+    for (let i = 0; i < NUM_DOORS; i++) {
+      const p = DOOR_LOCAL[i];
+      const dx = (p.x - EXAMPLE_QUERY_ELLIPSE.cx) / EXAMPLE_QUERY_ELLIPSE.rx;
+      const dy = (p.y - EXAMPLE_QUERY_ELLIPSE.cy) / EXAMPLE_QUERY_ELLIPSE.ry;
+      const inside = dx * dx + dy * dy <= 1;
+      const shouldBeInside = i !== EXAMPLE_CATASTROPHIC_DOOR;
+      if (inside !== shouldBeInside) {
+        throw new Error("World example geometry check failed: query ellipse membership wrong for door " + i);
       }
     }
   })();
@@ -2010,6 +2072,50 @@
 
   const DOOR_DOT_RADIUS_MULT = 0.075;
 
+  // The worked example itself (see EXAMPLE_CORRECT_DOOR et al. above):
+  // one door highlighted green, one red, a small cyan circle around the
+  // green one (Alice's kernel), and a bigger amber circle around every
+  // door except the red one (the query) -- cyan/amber deliberately the
+  // *exact* colors kappa(S)/kappa(Q) use throughout phase 1 (SEED_GLOW,
+  // CHART_Q_COLOR), so this reads as the same two objects, not a new
+  // pair invented for this section. Fades in once "Alice's kernel" is
+  // introduced and fades back out once the concrete example has made
+  // its point (end of "The obvious way") -- gone well before the real,
+  // unspoiled secret is ever put in play.
+  function drawWorldExample(tGame) {
+    const exampleAlpha = captionAlpha(tGame, CHG.worldEnd, CHG.worldEnd + 0.02, CHG.naiveCostEnd, CHG.naiveCostEnd + 0.03);
+    if (exampleAlpha <= 0) return;
+
+    const dotRadius = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT, 5);
+    const correctP = doorBoardPos(EXAMPLE_CORRECT_DOOR);
+    const catastrophicP = doorBoardPos(EXAMPLE_CATASTROPHIC_DOOR);
+    drawSquareMarker(correctP.x, correctP.y, dotRadius, CORRECT_COLOR, exampleAlpha, 2.6);
+    drawSquareMarker(catastrophicP.x, catastrophicP.y, dotRadius, CATASTROPHIC_COLOR, exampleAlpha, 2.6);
+
+    const kernelAlpha = exampleAlpha * smoothstep(CHG.worldEnd, CHG.worldEnd + 0.04, tGame);
+    if (kernelAlpha > 0) {
+      drawOutlineDisc(correctP.x, correctP.y, EXAMPLE_KERNEL_RADIUS * gameUnit, SEED_GLOW, kernelAlpha, {
+        fillColor: SEED_GLOW,
+        fillAlphaMult: 0.08,
+        strokeAlphaMult: 0.85,
+      });
+    }
+
+    const queryAlpha = exampleAlpha * smoothstep(CHG.kernelEnd, CHG.kernelEnd + 0.04, tGame);
+    if (queryAlpha > 0) {
+      const eb = gameToBoard(EXAMPLE_QUERY_ELLIPSE.cx, EXAMPLE_QUERY_ELLIPSE.cy);
+      drawOutlineEllipse(
+        eb.x,
+        eb.y,
+        EXAMPLE_QUERY_ELLIPSE.rx * gameUnit,
+        EXAMPLE_QUERY_ELLIPSE.ry * gameUnit,
+        CHART_Q_COLOR,
+        queryAlpha,
+        { fillColor: CHART_Q_COLOR, fillAlphaMult: 0.05, strokeAlphaMult: 0.75 }
+      );
+    }
+  }
+
   function drawGameBoard(alpha) {
     if (alpha <= 0) return;
     const dotRadius = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT, 5);
@@ -2142,11 +2248,12 @@
   }
 
   function drawGameScene(tGame) {
-    const boardAppear = smoothstep(CHG.storyEnd, CHG.worldEnd, tGame);
+    const boardAppear = smoothstep(CHG.storyEnd, CHG.setupEnd, tGame);
     const signalAppear = smoothstep(CHG.naiveCostEnd, CHG.twoBitsEnd, tGame);
     const playAppear = smoothstep(CHG.twoBitsEnd, CHG.playArrive, tGame);
 
     drawGameBoard(boardAppear);
+    drawWorldExample(tGame);
     if (signalAppear > 0) {
       const sp = aliceSignalPos();
       drawSignalIndicator(sp.x, sp.y, hintedGroup, Math.max(gameUnit * 0.055, 3), gameUnit * 0.32, signalAppear, NEUTRAL);
