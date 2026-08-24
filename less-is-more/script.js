@@ -166,47 +166,22 @@
 
   // Phase 2's own chapter boundaries, as a local t running 0->1 over the
   // *remaining* (1 - LEGACY_END) share of outer t -- see tGameOf() below.
-  // Chapters 1-5 (the storyboard's own numbering; phase 1 already used
+  // Chapters 1-3 (the storyboard's own numbering; phase 1 already used
   // 0-10) are simple scroll-driven fades, same idiom as phase 1. Chapter
-  // 6 onward ("Play, blind") is deliberately *not* t-driven past
-  // `playArrive`: Round 1 -> cheat sheet -> Round 2 -> Less/More are
-  // choice-dependent, not a fixed sequence a scrollbar could represent,
-  // so the board and the legend both switch from following t to
-  // following real game state (clicks) at that point. Scrolling further
-  // still "works" (nothing breaks), it just has nothing left to drive.
-  //
-  // An earlier version of chapters 3-5 tried to formalize "kernel"/
-  // "query" directly on the board itself -- one example world
-  // highlighted green/red, then the same six points recolored across
-  // several more cards into checkmarks and question marks standing for
-  // different things each time. Reported directly as confusing (color
-  // alone was being asked to keep too many different meanings apart),
-  // and replaced with the comparison table in index.html (see its own
-  // note there): the board simply steps aside (see boardAppear's own
-  // dip, in drawGameScene below) while the table carries the whole
-  // comparison, then reappears once the table's own job is done.
+  // 4 onward ("Play, blind") is deliberately *not* t-driven past
+  // `playArrive`: Round 1 -> cheat sheet -> Round 2 are choice-dependent,
+  // not a fixed sequence a scrollbar could represent, so the board and
+  // the legend both switch from following t to following real game state
+  // (clicks) at that point. Scrolling further still "works" (nothing
+  // breaks), it just has nothing left to drive.
   const CHG = {
-    storyEnd: 0.08, // 1: the story's own opening beat; phase 1's own
-    // diagram/tile/chart fade out together here, one shot, no fade back
-    // in (captionAlpha with no inStart..inEnd half -- the same one-shot
-    // pattern candidateEnd's own sentence fade-outs already use
-    // elsewhere in this file).
-    setupEnd: 0.2, // 2: "six buttons, one correct, one catastrophic" --
-    // the setting itself, established *before* the word "world" is used
-    // for it. The 6 button-points fade in here.
-    worldEnd: 0.32, // 3: "a world, here, is which button is correct
-    // *and* which is catastrophic" -- the setting it refers to already
-    // exists on screen and in the legend's own preceding card. The
-    // board starts fading out right after this, making room for...
-    tableEnd: 0.68, // 4: ...the comparison table itself, shown whole (no
-    // row-by-row reveal -- trying to sequence this the same way the
-    // board's own cards were sequenced is exactly what caused the
-    // original confusion). Given the most reading (four rows, four
-    // columns), this chapter gets the widest window of any of them.
-    twoBitsEnd: 0.8, // 5: the table fades back out; the board and
-    // Alice's 2-dot signal fade back in, ready for the real, unspoiled
-    // secret.
-    playArrive: 0.9, // 6: "Play, blind" -- the board stops following t
+    transitionEnd: 0.12, // 1: recap card; phase 1's own diagram/tile/chart
+    // fade out together, one shot, no fade back in (captionAlpha with no
+    // inStart..inEnd half -- the same one-shot pattern candidateEnd's own
+    // sentence fade-outs already use elsewhere in this file).
+    boardEnd: 0.34, // 2: the 6 door-points fade in at their fixed positions
+    signalEnd: 0.56, // 3: Alice's 2-dot signal fades in near the board
+    playArrive: 0.66, // 4: "Play, blind" -- the board stops following t
     // from here on; see the note above.
   };
 
@@ -217,13 +192,12 @@
   // Legend prose is deliberately plain-language and symbol-free: no raw
   // formulas (those stay properly typeset on the canvas, via
   // drawMathExpr, where they belong), no SI references or specific
-  // numbers borrowed from it (2 bits, four entries -- those belong to
-  // the SI's own worked example, only built later, in phase 2 below),
-  // and one consistent vocabulary throughout. The one deliberate
-  // exception: once the piece has fully demonstrated the result itself,
-  // "This is what Less means" names the paper's own theorem by name -- a
-  // reveal earned by that point, not a claim borrowed without showing
-  // the work.
+  // numbers borrowed from it (2 bits, four entries -- those belong to a
+  // worked example this piece hasn't built), and one consistent
+  // vocabulary throughout. The one deliberate exception: once the piece
+  // has fully demonstrated the result itself, "This is what Less means"
+  // names the paper's own theorem by name -- a reveal earned by that
+  // point, not a claim borrowed without showing the work.
   //   - these are logic sentences, never "descriptions"
   //   - a kernel is the collection of possible worlds consistent with a
   //     sentence -- "possible world" throughout, not a shifting mix of
@@ -322,80 +296,47 @@
   ];
 
   // ---- Phase 2's own legend copy -------------------------------------------
-  // Chapters 1-5, keyed to tGame (see tGameOf() below) the same way
-  // LEGEND_CHUNKS above is keyed to phase 1's own local t. The concrete
-  // numbers here (6 buttons, 30 worlds, 4.9/2.58/2 bits) are exactly what
-  // phase 1's own top comment deferred ("no SI references or specific
-  // numbers... those belong to a worked example this piece hasn't
-  // built") -- this is that worked example, finally built. The
-  // comparison itself -- what Alice knows, what that leaves Bob able to
-  // deduce, and the cost, across several different strategies -- lives
-  // in the actual comparison table (index.html's own #storyTableWrap),
-  // not on the canvas; the legend card here only introduces it. See
-  // CHG's own note above for why (an earlier, canvas-only version tried
-  // to recolor the same six board points across several cards and
-  // ended up asking color alone to keep too many meanings apart).
+  // Chapters 1-3, keyed to tGame (see tGameOf() below) the same way
+  // LEGEND_CHUNKS above is keyed to phase 1's own local t. Deliberately
+  // echoes phase 1's own vocabulary ("kernel," "short list") rather than
+  // introducing new terms for the same ideas -- this is the same
+  // mechanism, made concrete, not a new one.
   const GAME_LEGEND_CHUNKS = [
     {
       from: 0,
-      heading: "A story, concretely",
+      heading: "Here's what this looks like, concretely",
       body:
-        "Alice needs Bob to act safely \u2014 but there's no time to tell him everything she knows. Here's the same idea as before, told as a concrete story.",
+        "Suppose there are just six possible actions to choose from. Exactly one is correct, and exactly one is catastrophic. A target query, in a setting like this one, just means picking a demonstrably safe action.",
     },
     {
-      from: CHG.storyEnd,
-      heading: "Six buttons, two that matter",
+      from: CHG.transitionEnd,
+      heading: "Six actions, two that matter",
       body:
-        "Picture six possible buttons, shown here as six points. Exactly one is correct to push; exactly one would be catastrophic.",
+        "Each of these six points is one of the six possible actions. Exactly one is safe, one is catastrophic \u2014 Alice knows which, you don't, yet.",
     },
     {
-      from: CHG.setupEnd,
-      heading: "What's a world, here?",
-      body: "A world, in this story, is which button is correct \u2014 and which one is catastrophic.",
-    },
-    {
-      from: CHG.worldEnd,
-      heading: "What Alice knows, what Bob can deduce",
+      from: CHG.boardEnd,
+      heading: "Alice's signal",
       body:
-        "Alice always knows the complete world. What varies is what she tells Bob, and what that leaves him able to safely deduce \u2014 compared here, side by side, across a few different strategies.",
-    },
-    {
-      from: CHG.tableEnd,
-      heading: "Just 2 bits, actually",
-      body:
-        "That last row is the one actually used: a short, pre-agreed list of four candidate groups, one of which is always entirely safe. Alice broadcasts which one fits, continuously, shown here as two small marks.",
+        "Alice is continuously broadcasting a 2-bit signal, shown here as two small marks. It means nothing on its own \u2014 the same way a short pre-agreed list was needed before, it takes a shared list to decode this into anything useful.",
     },
   ];
 
-  // From chapter 7 on, the legend is keyed to the game's own state
+  // From chapter 4 on, the legend is keyed to the game's own state
   // (`gamePhase`) rather than to t -- see the CHG.playArrive note above.
-  // 'less'/'more' are reached only once the code has actually *won* a
-  // round (see recordOutcome) -- the same discipline phase 1 holds for
-  // its own "This is what Less/More means" cards: asserted only once
-  // demonstrated, not asserted up front.
   const GAME_PHASE_TEXT = {
     blind: {
       heading: "Play, blind",
-      body: "Pick some buttons, then press them all at once. Find the correct one; avoid the catastrophic one.",
+      body: "Pick some points, then open them. Find the correct action; avoid the catastrophic one.",
     },
     cheatsheet: {
       heading: "The short list, made concrete",
       body:
-        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six buttons. (Bonus fact: these six buttons are a tetrahedron's six edges; each group is the three edges meeting at one corner.)",
+        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six points. (Bonus fact: these six points are a tetrahedron's six edges; each group is the three edges meeting at one corner.)",
     },
     hinted: {
       heading: "Play, with the code",
-      body: "Decode Alice's signal, press exactly that group's buttons, and win every time.",
-    },
-    less: {
-      heading: "This is what \u201CLess\u201D means",
-      body:
-        "Two bits did it \u2014 less than either naive strategy: spelling out everything Alice knows (4.9 bits) or naming just the correct button (2.58 bits).",
-    },
-    more: {
-      heading: "This is what \u201CMore\u201D means",
-      body:
-        "Decoding the signal doesn't just hand you the one correct button \u2014 it hands you three provably-safe buttons, the correct one among them. Bob ends up able to safely press more than the one button strictly required.",
+      body: "Decode Alice's signal, open exactly that group's points, and win every time.",
     },
   };
 
@@ -864,11 +805,6 @@
     }
   })();
 
-  // The worked example that used to live here (an illustrative world,
-  // highlighted directly on the board) is now the comparison table in
-  // index.html (#storyTableWrap) instead -- see CHG's own note above for
-  // why. There's nothing left for the canvas itself to set up for it.
-
   // ---- Game state (never rendered directly -- only through the board's
   // own selected/opened point styling and the reveal labels) -----------
   let carDoor = 0;
@@ -906,14 +842,9 @@
     else if (selectedDoors.size < MAX_SELECTABLE) selectedDoors.add(i);
     // The first real move after the cheat sheet is revealed -- not a
     // second click of the reveal button -- is what actually moves the
-    // legend from "here's the list" to "play with the code": an action,
-    // not a passive continuation. Likewise, the first real move after
-    // "This is what Less means" has had its moment is what moves on to
-    // "This is what More means" -- see recordOutcome below for why
-    // "Less" is reached in the first place only once the code has
-    // actually won.
+    // legend from "here's the list" (ch.5) to "play with the code" (ch.6):
+    // an action, not a passive continuation.
     if (gamePhase === "cheatsheet") gamePhase = "hinted";
-    else if (gamePhase === "less") gamePhase = "more";
     refreshGameUI();
   }
 
@@ -927,17 +858,8 @@
   // not a three-way split that softens it.
   function recordOutcome(foundCar, foundZonk) {
     lastRoundWin = foundCar && !foundZonk;
-    if (lastRoundWin) {
-      winTally++;
-      // "This is what Less means" is reached only once the code has
-      // actually won a round -- the same discipline phase 1 holds for
-      // its own "Less"/"More" cards (asserted only once demonstrated,
-      // never up front). A loss while playing with the code (following
-      // it incorrectly) leaves gamePhase at 'hinted' for another try.
-      if (gamePhase === "hinted") gamePhase = "less";
-    } else {
-      lossTally++;
-    }
+    if (lastRoundWin) winTally++;
+    else lossTally++;
   }
 
   function openSelected() {
@@ -970,7 +892,6 @@
     // standalone demo's own startNewRound() (`codebookSection.hidden =
     // !cheatsheetRevealed`).
     if (!cheatsheetRevealed) gamePhase = "blind";
-    else if (gamePhase === "less") gamePhase = "more"; // see toggleDoor's own note
     resetRound();
   }
 
@@ -1019,7 +940,6 @@
   const legacyCtx = legacyCanvas.getContext("2d");
   const legendHeadingEl = document.getElementById("legendHeading");
   const legendBodyEl = document.getElementById("legendBody");
-  const storyTableWrapEl = document.getElementById("storyTableWrap");
   const gameControlsEl = document.getElementById("gameControls");
   const gameOpenBtn = document.getElementById("gameOpenBtn");
   const gameRevealBtn = document.getElementById("gameRevealBtn");
@@ -2022,12 +1942,6 @@
 
   const DOOR_DOT_RADIUS_MULT = 0.075;
 
-  // The worked example that used to render directly on the board (an
-  // illustrative world, then several rounds of recoloring the same six
-  // points) is now the comparison table in index.html (#storyTableWrap)
-  // -- see CHG's own note above. syncStoryTable() below shows/hides it;
-  // drawGameScene's own boardAppear dips out of the way while it's up.
-
   function drawGameBoard(alpha) {
     if (alpha <= 0) return;
     const dotRadius = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT, 5);
@@ -2159,26 +2073,10 @@
     }
   }
 
-  // Shows/hides the comparison table (see CHG's own note above) in step
-  // with tableAlpha. A plain opacity set, no CSS transition -- exactly
-  // like every canvas alpha elsewhere in this piece, this needs to be a
-  // pure function of t, static the instant scrolling stops, not an
-  // independently-animating DOM transition.
-  function syncStoryTable(tableAlpha) {
-    storyTableWrapEl.hidden = tableAlpha <= 0;
-    storyTableWrapEl.style.opacity = tableAlpha;
-  }
-
-  function drawGameScene(tGame, tableAlpha) {
-    // The table (index.html's own #storyTableWrap) takes over the
-    // screen region the board normally occupies -- the board dips out
-    // of the way while it's up, rather than the two ever sharing the
-    // same space. See CHG's own note above for why this replaced the
-    // earlier "recolor the same six points across several cards" idea.
-
-    const boardAppear = smoothstep(CHG.storyEnd, CHG.setupEnd, tGame) * (1 - tableAlpha);
-    const signalAppear = smoothstep(CHG.tableEnd, CHG.twoBitsEnd, tGame);
-    const playAppear = smoothstep(CHG.twoBitsEnd, CHG.playArrive, tGame);
+  function drawGameScene(tGame) {
+    const boardAppear = smoothstep(CHG.transitionEnd, CHG.boardEnd, tGame);
+    const signalAppear = smoothstep(CHG.boardEnd, CHG.signalEnd, tGame);
+    const playAppear = smoothstep(CHG.signalEnd, CHG.playArrive, tGame);
 
     drawGameBoard(boardAppear);
     if (signalAppear > 0) {
@@ -2219,7 +2117,7 @@
     // applied to the *whole* old scene at once via a single composited
     // image rather than threaded through every one of its own alpha
     // parameters. See the LEGACY_END note above for why.
-    const legacyAlpha = tOuter < LEGACY_END ? 1 : 1 - smoothstep(0, CHG.storyEnd, tGame);
+    const legacyAlpha = tOuter < LEGACY_END ? 1 : 1 - smoothstep(0, CHG.transitionEnd, tGame);
     if (legacyAlpha > 0) {
       const mainCtx = ctx;
       legacyCtx.clearRect(0, 0, legacyCanvas.width, legacyCanvas.height);
@@ -2237,22 +2135,7 @@
       ctx.restore();
     }
 
-    // Computed -- and the DOM table synced -- unconditionally, even for
-    // tOuter < LEGACY_END, so #storyTableWrap's own state is a pure
-    // function of tOuter everywhere, not left stale from whatever it was
-    // last set to while phase 2 was active. Otherwise, scrolling back
-    // into phase 1 leaves the *canvas* correctly showing phase 1 again,
-    // but the table's own DOM attributes quietly keep whatever value
-    // they last held -- invisible in practice (the table is already
-    // `hidden` well before LEGACY_END on any normal scroll), but not a
-    // true function of t, and it broke this file's own forward/backward
-    // scrub check (which, correctly, compares DOM state too, not just
-    // the canvas) the first time it was tried.
-    const tableAlpha =
-      tOuter >= LEGACY_END ? captionAlpha(tGame, CHG.worldEnd, CHG.worldEnd + 0.02, CHG.tableEnd, CHG.tableEnd + 0.02) : 0;
-    syncStoryTable(tableAlpha);
-
-    if (tOuter >= LEGACY_END) drawGameScene(tGame, tableAlpha);
+    if (tOuter >= LEGACY_END) drawGameScene(tGame);
   }
 
   // ---- Top-level render -------------------------------------------------------
