@@ -1,82 +1,66 @@
-# CLAUDE.md — explainer-information-logic
+# CLAUDE.md — content/explainer-less-is-more/
 
 This file exists so a fresh Claude Code session (no prior conversation
-history) can pick up work on this repo without re-deriving context that
+history) can pick up work on this piece without re-deriving context that
 took a very long session to build up. Read this before touching
-`less-is-more/script.js` in particular — it has accumulated a lot of
-hard-won, verified design decisions that are easy to accidentally undo.
+`script.js` in particular — it has accumulated a lot of hard-won,
+verified design decisions that are easy to accidentally undo.
 
-## What this repo is
-
-Two scroll-driven, canvas-based explainers for a paper about
-information-theoretic "targeted queries" (working title/theme: "Less is
-More" — a shorter, cleverly pre-agreed message can prove *more* than a
-longer, directly-tailored one, because it's built to serve many
-situations at once instead of being freshly computed for just one).
-
-- `less-is-more/` — the main, actively-developed piece. Two phases in
-  one continuous scroll track (see below). **This CLAUDE.md file is
-  scoped almost entirely to this piece** — everything past this bullet
-  list is about `less-is-more/` specifically.
-- `no-need-to-know/` — a separate, related explainer with its own
-  distinct mechanism (a hash-bin grid + Bob's window, not the door game
-  or `less-is-more`'s phase-1/phase-2 split). Not touched during the
-  session that produced most of this file. **Has its own dedicated
-  `no-need-to-know/CLAUDE.md`** — read that one instead of assuming
-  anything here applies; the two pieces share only the general
-  scroll-driven-canvas *pattern* and verification *methodology*, not any
-  specific content, mechanism, or decision.
-- `index.html` (repo root) — a landing page linking both.
-
-**Deployed via GitHub Pages** at:
-**https://lastras.github.io/explainer-information-logic/less-is-more/**
-
-No build step anywhere. Each piece is `index.html` + `style.css` +
-`script.js`, opened directly or served with `python3 -m http.server`.
+**This directory is a mirror.** The actual public deployment lives in a
+*separate* repo, `github.com/lastras/explainer-information-logic`
+(Pages-deployed at
+**https://lastras.github.io/explainer-information-logic/less-is-more/**).
+This copy, inside the IBM research monorepo
+(`github.ibm.com:IBM-Research-AI/information-in-logic`), exists so this
+piece's source lives alongside the paper it explains, but **every
+change needs to be synced to both repos** (see below). Note this repo's
+own `README.md` in this directory has diverged and is phase-1-only —
+trust the code and this file over it for phase 2.
 
 ## Repo / remote situation (read this before pushing anything)
 
-This repo (`github.com/lastras/explainer-information-logic`) is the
-**primary, public-facing deployment repo** — safe to push to, contains
-only these two explainers, nothing sensitive.
+**This repo is the main research monorepo for an entire unpublished
+PNAS paper** — it contains peer review files, draft PDFs, etc.,
+elsewhere in its history. **Do not** `git add -A` or otherwise sweep up
+unrelated files here. Only ever add the three explicit
+`content/explainer-less-is-more/{index.html,style.css,script.js}` files
+when committing changes to this piece. This repo is not (or wasn't, as
+of this writing — Pages was enabled on it once by request, then its
+status left an open question; check before assuming) itself
+Pages-deployed; the *other* repo below is the actual public-facing one.
 
-There is *also* a mirror copy of `less-is-more/`'s three files
-(`index.html`, `style.css`, `script.js` — **not** `README.md`, which
-diverged and is phase-1-only, see below) at:
+The other repo, **`github.com/lastras/explainer-information-logic`**,
+is the **primary, public-facing deployment repo** — safe to push to,
+contains only this piece and one other explainer (`no-need-to-know/`,
+which has its own separate `CLAUDE.md` at
+`content/explainer-no-need-to-know/CLAUDE.md` in this monorepo — this
+file's content is specific to `less-is-more/` and does not apply there),
+nothing sensitive. Its own working copy may be checked out at
+`/tmp/explainer-information-logic/` (not guaranteed to survive a
+reboot — if it's gone, `git clone
+git@github.com:lastras/explainer-information-logic.git` fresh). That
+repo has its **own, more detailed CLAUDE.md** at its root — read that
+one too if it's reachable; this file and that one were written
+together and are meant to be near-duplicates, but that one has a couple
+of details specific to that repo's own layout.
 
-```
-github.ibm.com:IBM-Research-AI/information-in-logic
-  content/explainer-less-is-more/
-```
-
-**That second repo is the main research monorepo for an entire
-unpublished PNAS paper** — it contains peer review files, draft PDFs,
-etc., elsewhere in its history. It is *not* Pages-deployed (or wasn't,
-as of this writing — Pages was enabled on it once by request, then its
-status was left an open question; check before assuming). **Do not**
-`git add -A` or otherwise sweep up unrelated files there. Only ever add
-the three explicit `less-is-more/{index.html,style.css,script.js}`
-files (mapped to `content/explainer-less-is-more/` in that repo) when
-syncing.
-
-**Workflow used throughout**: edit the files at
-`content/explainer-less-is-more/` (or wherever the working copy is),
-verify locally (see below), then `cp` the three files to
-`/tmp/explainer-information-logic/less-is-more/` (or wherever that
-repo's working copy currently is checked out — **it may be in `/tmp`,
-which is not guaranteed to survive a reboot; if it's gone, `git clone
-git@github.com:lastras/explainer-information-logic.git` fresh**), commit
-and push there, then commit and push the IBM mirror too. Two separate
-commits (same message content, second one adds a
+**Workflow used throughout**: edit here, verify locally (see below),
+then `cp` the three files to the other repo's `less-is-more/` directory,
+commit and push there, then commit and push here too. Two separate
+commits (same message content, this repo's own commit adds a
 `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>` trailer to
-match that repo's own convention) — not a shared history, these are
-unrelated repos.
+match its own convention) — not a shared history, these are unrelated
+repos.
 
 There is also a stray, unused git remote (`github-com` →
-`git@github.com:lastras/information-in-logic.git`) on the IBM repo's
+`git@github.com:lastras/information-in-logic.git`) on this repo's
 working copy, left over from an early mistake (created an empty repo
 there before being redirected to the *actual* intended deployment repo
-above). It has nothing pushed to it. Ignore it; don't push there.
+above). It has nothing pushed to it. Ignore it; don't push there. The
+remote actually used for the deployment repo, if added here at all,
+would need adding fresh (it wasn't kept as a remote of *this* repo —
+syncing was done by `cp`-ing files between two separately-cloned
+working copies, not by git remotes on one shared repo).
 
 ## Verification methodology (used for every single change)
 
@@ -90,9 +74,9 @@ framework. The discipline, in order, for *any* nontrivial change:
    vertex to the ±Z axis. Before removing the two-radii door layout, a
    script confirmed what angles the "aligned" 3D projection actually
    produces, so the new flat 2D hexagon could be picked to match them
-   exactly rather than approximately. Scratch scripts like this go in
-   `/tmp/verify_gtd/` (arbitrary scratch dir name from this session;
-   feel free to make a new one) — throwaway, not committed.
+   exactly rather than approximately. Scratch scripts like this go in a
+   throwaway scratch dir (e.g. `/tmp/verify_gtd/` from this session) —
+   not committed.
 2. **Take real screenshots** via Puppeteer + a locally-cached
    Chrome-for-Testing binary, not by reasoning about CSS/canvas math
    alone. The exact binary path used throughout this session:
@@ -103,12 +87,12 @@ framework. The discipline, in order, for *any* nontrivial change:
    the current one.) `puppeteer-core` (not full `puppeteer`) installed
    in a scratch dir via `npm install puppeteer-core`.
 3. **Serve the directory locally** before screenshotting:
-   `cd less-is-more && python3 -m http.server 8791` (background it),
-   then hit `http://localhost:8791/index.html` from the Puppeteer
-   script. Restart the server after every edit (`pkill -f "http.server
-   8791"` then relaunch) — Python's server doesn't need a restart to
-   pick up file changes, actually, but doing it defensively doesn't
-   hurt and was the habit throughout.
+   `cd content/explainer-less-is-more && python3 -m http.server 8791`
+   (background it), then hit `http://localhost:8791/index.html` from
+   the Puppeteer script. Restart the server after every edit
+   (`pkill -f "http.server 8791"` then relaunch) — not strictly
+   necessary since the server re-reads files per-request, but was the
+   habit throughout.
 4. **Checks run after every meaningful change**, always:
    - **Idle-static**: screenshot, wait 1.5–2s doing nothing, screenshot
      again, assert byte-identical `canvas.toDataURL()`. Confirms nothing
@@ -144,7 +128,7 @@ this up fresh, expect to rewrite small variants of these scripts as
 needed; the patterns above are the reusable part, not any specific
 script file.
 
-## `less-is-more/script.js` architecture
+## `script.js` architecture
 
 Single IIFE closure, no imports, no modules. Written top-to-bottom in
 roughly this order (grep for the section-header comments, which use
@@ -179,11 +163,10 @@ roughly this order (grep for the section-header comments, which use
   and `GAME_LEGEND_CHUNKS`/`GAME_PHASE_TEXT`/`TETRA_REVEAL_TEXT`/
   `SUMMARY_TEXT` (legend copy) are all keyed to `tGame`.
 - The old standalone demo this was built from,
-  `content/demo-game-show-code/` (or wherever it lives relative to this
-  repo — it's a sibling in the IBM monorepo, not present in *this*
-  repo), is **explicitly left untouched**, kept only for reference. All
-  of phase 2 here is a fresh reimplementation in this piece's own visual
-  language, not an edit to that demo.
+  `content/demo-game-show-code/` (a sibling directory in this same
+  monorepo), is **explicitly left untouched**, kept only for reference.
+  All of phase 2 here is a fresh reimplementation in this piece's own
+  visual language, not an edit to that demo.
 
 ### Phase 2's own structure ("Guess the Door")
 
@@ -479,9 +462,9 @@ retried:
 
 ## If you're picking this up fresh, in order of likely need
 
-1. `cd` into the actual working copy (may need to re-clone; see remotes
-   section above) and confirm `git log --oneline -5` matches what you'd
-   expect (recent commits should mention hexagon/tetrahedron/reveal).
+1. Confirm `git log --oneline -5 -- content/explainer-less-is-more/`
+   matches what you'd expect (recent commits should mention
+   hexagon/tetrahedron/reveal).
 2. Serve locally and manually scroll through once in a real browser to
    get oriented, before editing anything.
 3. If making a change, re-read the relevant section above, grep the
