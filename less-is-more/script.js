@@ -46,6 +46,25 @@
 // kernels they name: those are a different kind of thing from an
 // explanatory label -- concrete content the rest of the piece reasons
 // about, not narration describing what's already on screen -- and stay.
+//
+// Phase 2 ("Guess the Door," everything past LEGACY_END below) folds in
+// a second, concrete dramatization of the *same* mechanism: the SI's own
+// worked 6-action example, previously a separate, differently-skinned
+// interactive at content/demo-game-show-code/ (untouched, still there).
+// A glowing disc's own meaning, established from chapter 0 on, is "a
+// kernel" -- a *set* of possibilities. A door is not that: it's a single
+// *element* of the 6-item universe. So doors are drawn as plain points,
+// never as their own discs, and a kernel here -- a candidate group, or
+// the player's own live selection -- is drawn as the complete graph on
+// its member points (every pair joined by a line, reusing
+// drawGrowingLink, the same primitive used everywhere else in this piece
+// for "these are related"), not as an enclosing shape. This isn't only a
+// metaphor: the SI's own 4x6 codebook (GROUPS, below) turns out to be
+// exactly the 4 vertex-stars of a tetrahedron whose 6 edges are the 6
+// doors -- verified directly from GROUPS, not asserted -- and the fixed
+// door layout below is a planar drawing of that same graph. See
+// verifyGameGeometry() for the checked facts, and the comments around
+// GAME_R_SIDE/GAME_R_SPOKE for why the two point-radii differ.
 // -----------------------------------------------------------------------
 
 (function () {
@@ -118,6 +137,52 @@
     // candidateEnd via a fixed offset, so this tail keeps working
     // correctly no matter how far candidateEnd and scaleEnd end up being
     // retuned relative to each other again.)
+  };
+
+  // ---- Phase 2 ("Guess the Door"): where it starts, and its own chapter
+  // boundaries -----------------------------------------------------------
+  // Every constant and offset above (all of CH, every qBoostAt/sBoostAt/
+  // candBoostAt/moreBoostAt window, every hand-solved margin inside
+  // drawVennProof/drawCostChart/drawCandidateStatement/drawScalePopulation)
+  // was tuned and screenshot-verified against a *local* t running 0->1
+  // over the *original* 600vh track's own effective scroll range. Adding
+  // a second half past the old ending means the overall track (and so
+  // the *outer* t computeT() now returns) is physically longer -- and
+  // rescaling all of those dozens of constants to match would silently
+  // change how many scroll-pixels each one still spans, undoing that
+  // verification without anyone re-checking it. Instead, outer t is
+  // split in two, and phase 1 is left *completely untouched*: every
+  // function above still receives its own local t running 0->1 over
+  // exactly the scroll-pixel range it was verified against; only the
+  // *outer* mapping from scroll position to that local t changes.
+  //
+  // LEGACY_END is where phase 1's own t=1 lands in the new, longer outer
+  // t. Solved exactly, not approximated: style.css grew the track from
+  // 600vh to 1000vh, so outer scroll range is (1000-100)=900 viewport-
+  // heights (100vh being the pinned viewport itself); LEGACY_END*900 has
+  // to equal phase 1's original (600-100)=500 viewport-heights, i.e.
+  // LEGACY_END = 500/900 = 5/9.
+  const LEGACY_END = 5 / 9;
+
+  // Phase 2's own chapter boundaries, as a local t running 0->1 over the
+  // *remaining* (1 - LEGACY_END) share of outer t -- see tGameOf() below.
+  // Chapters 1-3 (the storyboard's own numbering; phase 1 already used
+  // 0-10) are simple scroll-driven fades, same idiom as phase 1. Chapter
+  // 4 onward ("Play, blind") is deliberately *not* t-driven past
+  // `playArrive`: Round 1 -> cheat sheet -> Round 2 are choice-dependent,
+  // not a fixed sequence a scrollbar could represent, so the board and
+  // the legend both switch from following t to following real game state
+  // (clicks) at that point. Scrolling further still "works" (nothing
+  // breaks), it just has nothing left to drive.
+  const CHG = {
+    transitionEnd: 0.12, // 1: recap card; phase 1's own diagram/tile/chart
+    // fade out together, one shot, no fade back in (captionAlpha with no
+    // inStart..inEnd half -- the same one-shot pattern candidateEnd's own
+    // sentence fade-outs already use elsewhere in this file).
+    boardEnd: 0.34, // 2: the 6 door-points fade in at their fixed positions
+    signalEnd: 0.56, // 3: Alice's 2-dot signal fades in near the board
+    playArrive: 0.66, // 4: "Play, blind" -- the board stops following t
+    // from here on; see the note above.
   };
 
   // ---- Legend copy, synchronized to the same chapter boundaries as the
@@ -230,6 +295,51 @@
     },
   ];
 
+  // ---- Phase 2's own legend copy -------------------------------------------
+  // Chapters 1-3, keyed to tGame (see tGameOf() below) the same way
+  // LEGEND_CHUNKS above is keyed to phase 1's own local t. Deliberately
+  // echoes phase 1's own vocabulary ("kernel," "short list") rather than
+  // introducing new terms for the same ideas -- this is the same
+  // mechanism, made concrete, not a new one.
+  const GAME_LEGEND_CHUNKS = [
+    {
+      from: 0,
+      heading: "Here's what this looks like, concretely",
+      body:
+        "Suppose there are just six possible actions to choose from. Exactly one is correct, and exactly one is catastrophic. A target query, in a setting like this one, just means picking a demonstrably safe action.",
+    },
+    {
+      from: CHG.transitionEnd,
+      heading: "Six actions, two that matter",
+      body:
+        "Each of these six points is one of the six possible actions. Exactly one is safe, one is catastrophic \u2014 Alice knows which, you don't, yet.",
+    },
+    {
+      from: CHG.boardEnd,
+      heading: "Alice's signal",
+      body:
+        "Alice is continuously broadcasting a 2-bit signal, shown here as two small marks. It means nothing on its own \u2014 the same way a short pre-agreed list was needed before, it takes a shared list to decode this into anything useful.",
+    },
+  ];
+
+  // From chapter 4 on, the legend is keyed to the game's own state
+  // (`gamePhase`) rather than to t -- see the CHG.playArrive note above.
+  const GAME_PHASE_TEXT = {
+    blind: {
+      heading: "Play, blind",
+      body: "Pick some points, then open them. Find the correct action; avoid the catastrophic one.",
+    },
+    cheatsheet: {
+      heading: "The short list, made concrete",
+      body:
+        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six points. (Bonus fact: these six points are a tetrahedron's six edges; each group is the three edges meeting at one corner.)",
+    },
+    hinted: {
+      heading: "Play, with the code",
+      body: "Decode Alice's signal, open exactly that group's points, and win every time.",
+    },
+  };
+
   // ---- Palette -------------------------------------------------------------
   // Color = variable identity, kept identical between the diagram and the
   // chart: kappa(S) is this cyan everywhere it appears (its own disc, and
@@ -244,6 +354,12 @@
   const CANDIDATE_COLOR_HEX = "#3b7fe0"; // the shared candidate -- disc and chart curve
   const NEUTRAL_HEX = "#dfe8ea";
   const LABEL_HEX = "#dfe8ea";
+  // Phase 2 only. A door's role (correct/catastrophic) isn't a kernel --
+  // there's nothing here to keep color-identical with a curve the way
+  // kappa(S)/kappa(Q)/the candidate are elsewhere -- so this is a fresh,
+  // ordinary safe/danger pair, not drawn from the kernel palette above.
+  const CORRECT_COLOR_HEX = "#7be07f";
+  const CATASTROPHIC_COLOR_HEX = "#ff6a6a";
 
   // ---- Board -----------------------------------------------------------------
   const BOARD_ASPECT = 7 / 9;
@@ -251,6 +367,21 @@
 
   const CENTER_FX = 0.5;
   const CENTER_FY = 0.26;
+
+  // Phase 2's own board anchor/scale -- see gameToBoard() below. Tuned
+  // (like CENTER_FY/UNIT_DIVISOR above) by screenshotting the actual
+  // composition: high enough to leave room above for the win/loss banner
+  // and Alice's signal, and below for the tally line and the cheat
+  // sheet's own two rows of mini-boards. 0.27 left the banner clipped off
+  // the top of the viewport on wide-but-short boards (900x600 and
+  // similar, where board.by is 0) -- reported directly. Solved for
+  // directly against that exact case (see the banner/tally arithmetic in
+  // drawResultBanner/drawTally's own callers): 0.30 leaves >=15px of
+  // margin both above the banner and between the tally and the cheat
+  // sheet's own first row, at that viewport.
+  const GAME_CENTER_FX = 0.5;
+  const GAME_CENTER_FY = 0.3;
+  const GAME_UNIT_DIVISOR = 3.6;
 
   // The cost chart's own rect, as board fractions (not pixels, since the
   // tile grid below is built once, before board dimensions are known,
@@ -287,6 +418,8 @@
   const NEUTRAL = hexToRgb(NEUTRAL_HEX);
   const LABEL_COLOR = hexToRgb(LABEL_HEX);
   const CHART_Q_COLOR = hexToRgb(CHART_Q_COLOR_HEX);
+  const CORRECT_COLOR = hexToRgb(CORRECT_COLOR_HEX);
+  const CATASTROPHIC_COLOR = hexToRgb(CATASTROPHIC_COLOR_HEX);
 
   function rgbCss(c, alpha) {
     return `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${alpha})`;
@@ -510,31 +643,369 @@
     return positions;
   }
 
+  // =======================================================================
+  // ---- Guess the Door: setup (game state, geometry, verification) -------
+  // =======================================================================
+  // The SI's own pre-agreed 4x6 codebook -- identical to
+  // content/demo-game-show-code/'s own GROUPS, and to the matrix in the
+  // SI appendix ("An example of a deterministic, optimal algorithm for a
+  // small problem with targeted queries"). Row g, column i is 1 if door i
+  // belongs to group g.
+  const GROUPS = [
+    [0, 0, 0, 1, 1, 1],
+    [0, 1, 1, 0, 1, 0],
+    [1, 0, 1, 1, 0, 0],
+    [1, 1, 0, 0, 0, 1],
+  ];
+  const NUM_DOORS = 6;
+  const MAX_SELECTABLE = NUM_DOORS;
+
+  // Given a car door and a zonk door, find a group that includes the car
+  // door and excludes the zonk door. Returns -1 if none is found (should
+  // never happen for car !== zonk, per the SI's own proof).
+  function findGroup(car, zonk) {
+    for (let g = 0; g < GROUPS.length; g++) {
+      if (GROUPS[g][car] === 1 && GROUPS[g][zonk] === 0) return g;
+    }
+    return -1;
+  }
+
+  // ---- The tetrahedron layout -----------------------------------------
+  // Checking GROUPS directly (done once, in Node, before any of this was
+  // drawn -- see verifyGameGeometry() below for the load-time version of
+  // the same check): each door belongs to exactly 2 of the 4 groups, and
+  // the six {group, group} pairs those doors induce are exactly the six
+  // 2-element subsets of {0,1,2,3} -- door i's two group-memberships are
+  // exactly the two tetrahedron vertices its edge connects, for all 6
+  // doors, no exceptions. So "group g" is precisely the 3 edges (doors)
+  // meeting at vertex g -- a vertex star -- and the whole codebook is a
+  // planar drawing of K4 away from being drawn: an outer triangle of 3
+  // vertices plus 1 vertex at the center, 6 edges (the 3 triangle sides
+  // plus 3 spokes), with each door placed at *its own edge's* midpoint.
+  //
+  // Concretely, for this GROUPS: vertex 3 (the "center" group) is the
+  // spoke doors {0, 1, 5}; vertices 0/1/2 (the "outer" groups) are each
+  // 2 adjacent side-doors plus that vertex's own spoke door: group 0 =
+  // {3,4,5}, group 1 = {1,2,4}, group 2 = {0,2,3}. GAME_SIDE_DOORS/
+  // GAME_SPOKE_DOORS below encode exactly this split; verifyGameGeometry()
+  // confirms it against GROUPS directly rather than trusting this comment.
+  //
+  // One real wrinkle, worked out by direct computation before committing
+  // to this layout (not assumed from "K4 is planar" alone -- that fact is
+  // about the 4 *vertex-to-vertex* edges never crossing, not about
+  // straight lines drawn between *edge-midpoints*, which is a different
+  // graph and doesn't automatically inherit it): placing every door at
+  // its edge's exact midpoint puts all 6 doors on a common circle, and
+  // the center group's own triangle (connecting 3 doors spread evenly
+  // around that circle) crosses each outer group's triangle twice. The
+  // fix is GAME_R_SPOKE < GAME_R_SIDE: pulling the 3 spoke-doors in
+  // toward the center (any radius under GAME_R_SIDE/2, the outer
+  // triangle's own inradius, works -- verified directly below) makes the
+  // center group a small triangle strictly inside the outer triangle,
+  // which removes the crossing entirely. verifyGameGeometry() checks this
+  // at the actual chosen radius, every load, rather than trusting the
+  // margin chosen here.
+  const GAME_R_SIDE = 0.5;
+  const GAME_R_SPOKE = 0.16; // comfortably under 0.25 = GAME_R_SIDE/2
+  const GAME_SIDE_DOORS = { 2: 90, 3: 330, 4: 210 }; // door -> angle (deg)
+  const GAME_SPOKE_DOORS = { 0: 30, 1: 150, 5: 270 };
+
+  // Door positions in local "game space" units (converted to board pixels
+  // by gameToBoard(), the same pattern as vennToBoard() above).
+  const DOOR_LOCAL = (function () {
+    const pos = new Array(NUM_DOORS);
+    function place(map, r) {
+      for (const key of Object.keys(map)) {
+        const d = Number(key);
+        const rad = (map[key] * Math.PI) / 180;
+        pos[d] = { x: r * Math.cos(rad), y: r * Math.sin(rad) };
+      }
+    }
+    place(GAME_SIDE_DOORS, GAME_R_SIDE);
+    place(GAME_SPOKE_DOORS, GAME_R_SPOKE);
+    return pos;
+  })();
+
+  // A player's own selection can be any 1-6 points, not just the 4 real
+  // groups, and every pair of selected points gets connected the same
+  // way (see drawKernelFan below) -- so unlike the 4 real groups (always
+  // crossing-free, checked below), a selection of 5 or 6 points is *not*
+  // claimed to be crossing-free: its complete graph contains K5, which is
+  // non-planar (Kuratowski), so no placement avoids at least one crossing
+  // there. Selections of 4 points are a mixed bag at this exact layout --
+  // some cross, some don't, depending on which 4 -- and that's fine, not
+  // a bug: opening 5+ of 6 doors is already a poor blind-guess strategy
+  // (it makes finding the zonk almost certain), so an occasional crossing
+  // reads as "you're tangling yourself up," exactly as intended.
+  (function verifyGameGeometry() {
+    // Structural check: GROUPS really is the tetrahedron's 4 vertex-stars
+    // -- each door in exactly 2 groups, and the six {group,group} pairs
+    // those memberships produce are exactly the six 2-subsets of
+    // {0,1,2,3}, each covered once.
+    const doorGroups = [];
+    for (let d = 0; d < NUM_DOORS; d++) {
+      const gs = [];
+      for (let g = 0; g < GROUPS.length; g++) if (GROUPS[g][d] === 1) gs.push(g);
+      doorGroups.push(gs);
+    }
+    const seenPairs = new Set();
+    for (const gs of doorGroups) {
+      if (gs.length !== 2) throw new Error("Game geometry check failed: door belongs to " + gs.length + " groups, not 2");
+      const key = gs[0] < gs[1] ? gs[0] + "," + gs[1] : gs[1] + "," + gs[0];
+      if (seenPairs.has(key)) throw new Error("Game geometry check failed: duplicate vertex pair " + key);
+      seenPairs.add(key);
+    }
+    if (seenPairs.size !== 6) throw new Error("Game geometry check failed: not all 6 vertex pairs covered");
+
+    // Each group's own doors must be exactly the doors incident to that
+    // group's vertex -- confirms GAME_SIDE_DOORS/GAME_SPOKE_DOORS's own
+    // vertex assignment (which group is "center") actually matches
+    // GROUPS, not just a plausible-looking guess at the correspondence.
+    const groupDoors = GROUPS.map((row) => row.map((b, i) => (b ? i : -1)).filter((i) => i >= 0));
+    for (let g = 0; g < GROUPS.length; g++) {
+      const incident = [];
+      for (let d = 0; d < NUM_DOORS; d++) if (doorGroups[d].includes(g)) incident.push(d);
+      if (JSON.stringify(groupDoors[g]) !== JSON.stringify(incident)) {
+        throw new Error("Game geometry check failed: group " + g + " doors don't match its vertex star");
+      }
+    }
+
+    // Geometric check: no two of the 4 real groups' own 3-edge fans cross
+    // each other, at the actual DOOR_LOCAL positions drawn. A straight
+    // edge's crossing test is exact -- unlike verifyVennGeometry()'s
+    // point-sampling (needed there for curved shape boundaries), no
+    // sampling is needed here, just the standard segment-orientation test.
+    function orient(o, a, b) {
+      return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+    }
+    function segmentsCross(p1, p2, p3, p4) {
+      const d1 = orient(p3, p4, p1), d2 = orient(p3, p4, p2);
+      const d3 = orient(p1, p2, p3), d4 = orient(p1, p2, p4);
+      return (d1 > 0) !== (d2 > 0) && d1 !== 0 && d2 !== 0 && (d3 > 0) !== (d4 > 0) && d3 !== 0 && d4 !== 0;
+    }
+    function fanEdges(doors) {
+      const edges = [];
+      for (let i = 0; i < doors.length; i++) for (let j = i + 1; j < doors.length; j++) edges.push([doors[i], doors[j]]);
+      return edges;
+    }
+    function sharesEndpoint(e1, e2) {
+      return e1[0] === e2[0] || e1[0] === e2[1] || e1[1] === e2[0] || e1[1] === e2[1];
+    }
+    for (let g1 = 0; g1 < GROUPS.length; g1++) {
+      for (let g2 = g1 + 1; g2 < GROUPS.length; g2++) {
+        for (const e1 of fanEdges(groupDoors[g1])) {
+          for (const e2 of fanEdges(groupDoors[g2])) {
+            if (sharesEndpoint(e1, e2)) continue; // sharing a door is fine, not a crossing
+            if (segmentsCross(DOOR_LOCAL[e1[0]], DOOR_LOCAL[e1[1]], DOOR_LOCAL[e2[0]], DOOR_LOCAL[e2[1]])) {
+              throw new Error(`Game geometry check failed: group ${g1}'s fan crosses group ${g2}'s fan`);
+            }
+          }
+        }
+      }
+    }
+  })();
+
+  // ---- Game state (never rendered directly -- only through the board's
+  // own selected/opened point styling and the reveal labels) -----------
+  let carDoor = 0;
+  let zonkDoor = 1;
+  let hintedGroup = -1;
+  const selectedDoors = new Set();
+  const openedDoors = new Set();
+  let roundResolved = false;
+  let lastRoundWin = null; // null until a round resolves; then true/false -- drives the win/loss banner
+  let cheatsheetRevealed = false;
+  let gamePhase = "blind"; // 'blind' | 'cheatsheet' | 'hinted'
+  let winTally = 0;
+  let lossTally = 0;
+
+  function randomInt(n) {
+    return Math.floor(Math.random() * n);
+  }
+
+  function randomizeSecret() {
+    carDoor = randomInt(NUM_DOORS);
+    do {
+      zonkDoor = randomInt(NUM_DOORS);
+    } while (zonkDoor === carDoor);
+    // Alice broadcasts continuously, from the moment the secret is set --
+    // not just once a hint is "asked for." The signal doesn't help at all
+    // until the cheat sheet is also in hand to decode it, exactly the
+    // point chapter 3's own legend card makes.
+    hintedGroup = findGroup(carDoor, zonkDoor);
+  }
+  randomizeSecret();
+
+  function toggleDoor(i) {
+    if (roundResolved) return;
+    if (selectedDoors.has(i)) selectedDoors.delete(i);
+    else if (selectedDoors.size < MAX_SELECTABLE) selectedDoors.add(i);
+    // The first real move after the cheat sheet is revealed -- not a
+    // second click of the reveal button -- is what actually moves the
+    // legend from "here's the list" (ch.5) to "play with the code" (ch.6):
+    // an action, not a passive continuation.
+    if (gamePhase === "cheatsheet") gamePhase = "hinted";
+    refreshGameUI();
+  }
+
+  // Win iff the correct action was found *and* the catastrophic one
+  // wasn't. Everything else -- missing the correct action regardless of
+  // the catastrophic one, or finding the catastrophic one regardless of
+  // the correct one -- is simply a loss. Rule change from the standalone
+  // demo (content/demo-game-show-code/), which kept a third "draw"
+  // outcome for "found neither." Binary sharpens the actual contrast this
+  // mechanism is about: blind guessing loses, the codebook always wins --
+  // not a three-way split that softens it.
+  function recordOutcome(foundCar, foundZonk) {
+    lastRoundWin = foundCar && !foundZonk;
+    if (lastRoundWin) winTally++;
+    else lossTally++;
+  }
+
+  function openSelected() {
+    if (selectedDoors.size === 0 || roundResolved) return;
+    roundResolved = true;
+    for (const i of selectedDoors) openedDoors.add(i);
+    recordOutcome(selectedDoors.has(carDoor), selectedDoors.has(zonkDoor));
+    refreshGameUI();
+  }
+
+  function resetRound() {
+    selectedDoors.clear();
+    openedDoors.clear();
+    roundResolved = false;
+    lastRoundWin = null;
+    refreshGameUI();
+  }
+
+  function revealCheatsheet() {
+    cheatsheetRevealed = true;
+    gamePhase = "cheatsheet";
+    resetRound();
+  }
+
+  function startNewRound() {
+    randomizeSecret();
+    // Once the cheat sheet has been revealed, every subsequent round
+    // plays with the code -- there's no reason to send a player who's
+    // already seen the short list back to guessing blind. Mirrors the
+    // standalone demo's own startNewRound() (`codebookSection.hidden =
+    // !cheatsheetRevealed`).
+    if (!cheatsheetRevealed) gamePhase = "blind";
+    resetRound();
+  }
+
+  // Scrolling backward out of the interactive zone (see CHG.playArrive
+  // and isGameInteractive() above) puts the game session behind you the
+  // same way scrolling back out of any earlier chapter puts *it* behind
+  // you -- so scrolling forward again should arrive at a fresh "Play,
+  // blind" start, not resume wherever the game session had gotten to.
+  // Without this, the cheat sheet (once revealed) stayed revealed no
+  // matter how far back you scrolled -- reported directly. A pure state
+  // reset, deliberately with *no* call to refreshGameUI()/render() of
+  // its own: called from inside render() itself (see wasInteractive
+  // below), so the reset state is simply what that same, already-in-
+  // progress render() call draws -- calling render() again from in here
+  // would re-enter it while it's still running.
+  function resetGameToInitialState() {
+    cheatsheetRevealed = false;
+    gamePhase = "blind";
+    winTally = 0;
+    lossTally = 0;
+    selectedDoors.clear();
+    openedDoors.clear();
+    roundResolved = false;
+    lastRoundWin = null;
+    randomizeSecret();
+  }
+
   // ---- Canvas / DOM setup --------------------------------------------------
   const track = document.getElementById("scrollTrack");
   const pinned = track.querySelector(".pinned");
   const canvas = document.getElementById("scene");
-  const ctx = canvas.getContext("2d");
+  // `let`, not `const`: drawScene() below temporarily points this at an
+  // offscreen canvas for exactly as long as it takes to render phase 1's
+  // own content, so it can be faded out as a single composited image
+  // (see the LEGACY_END note above and drawScene() below) without
+  // touching any of phase 1's own drawing functions -- every one of
+  // which closes over this one `ctx` binding and calls its methods
+  // directly, with no color/alpha parameter threaded through for "how
+  // faded is the whole scene," and no such parameter should need adding
+  // to already-verified code just to support a fade that phase 1 itself
+  // never needed.
+  let ctx = canvas.getContext("2d");
+  // The offscreen buffer phase 1's own content is redirected to during
+  // its fade-out. Sized to match `canvas` exactly (see resize() below).
+  const legacyCanvas = document.createElement("canvas");
+  const legacyCtx = legacyCanvas.getContext("2d");
   const legendHeadingEl = document.getElementById("legendHeading");
   const legendBodyEl = document.getElementById("legendBody");
+  const gameControlsEl = document.getElementById("gameControls");
+  const gameOpenBtn = document.getElementById("gameOpenBtn");
+  const gameRevealBtn = document.getElementById("gameRevealBtn");
+  const gameNewRoundBtn = document.getElementById("gameNewRoundBtn");
 
   const tileGrid = buildTileGrid();
 
   let board = { bx: 0, by: 0, bw: 0, bh: 0 };
   let unit = 0;
+  let gameUnit = 0;
   let dpr = window.devicePixelRatio || 1;
   let lastT = 0;
-  let legendChunkIndex = -1;
+  let legendChunkKey = null;
+  // Tracks whether the *previous* render() call found the game
+  // interactive, so render() can detect the one moment that matters:
+  // scrolling backward out of that zone (see resetGameToInitialState()
+  // below). Starts false, matching isGameInteractive(0).
+  let wasInteractive = false;
 
-  function updateLegend(t) {
-    let idx = 0;
-    for (let i = 0; i < LEGEND_CHUNKS.length; i++) {
-      if (t >= LEGEND_CHUNKS[i].from) idx = i;
+  // tGame: local t for phase 2, running 0->1 over outer t's own
+  // [LEGACY_END, 1] share. Clamped at both ends, same convention as
+  // every other local-t derivation in this file (e.g. computeT() itself).
+  function tGameOf(tOuter) {
+    return clamp((tOuter - LEGACY_END) / (1 - LEGACY_END), 0, 1);
+  }
+
+  // True once the board has arrived at "Play, blind" (CHG.playArrive) and
+  // stopped following t -- the single predicate both the click handler
+  // and the render/legend logic below use, so "is the game interactive
+  // right now" is decided in exactly one place.
+  function isGameInteractive(tOuter) {
+    return tOuter >= LEGACY_END && tGameOf(tOuter) >= CHG.playArrive;
+  }
+
+  function updateLegend(tOuter) {
+    let heading, body, key;
+    if (tOuter < LEGACY_END) {
+      const tOld = tOuter / LEGACY_END;
+      let idx = 0;
+      for (let i = 0; i < LEGEND_CHUNKS.length; i++) if (tOld >= LEGEND_CHUNKS[i].from) idx = i;
+      heading = LEGEND_CHUNKS[idx].heading;
+      body = LEGEND_CHUNKS[idx].body;
+      key = "legacy" + idx;
+    } else {
+      const tGame = tGameOf(tOuter);
+      if (tGame < CHG.playArrive) {
+        let idx = 0;
+        for (let i = 0; i < GAME_LEGEND_CHUNKS.length; i++) if (tGame >= GAME_LEGEND_CHUNKS[i].from) idx = i;
+        heading = GAME_LEGEND_CHUNKS[idx].heading;
+        body = GAME_LEGEND_CHUNKS[idx].body;
+        key = "game" + idx;
+      } else {
+        // Legend text is keyed to gamePhase itself here, not to tGame --
+        // see the CHG.playArrive note above for why the board and the
+        // legend both switch from following t to following real game
+        // state at this exact point.
+        const g = GAME_PHASE_TEXT[gamePhase];
+        heading = g.heading;
+        body = g.body;
+        key = "phase-" + gamePhase;
+      }
     }
-    if (idx === legendChunkIndex) return;
-    legendChunkIndex = idx;
-    legendHeadingEl.textContent = LEGEND_CHUNKS[idx].heading;
-    legendBodyEl.textContent = LEGEND_CHUNKS[idx].body;
+    if (key === legendChunkKey) return;
+    legendChunkKey = key;
+    legendHeadingEl.textContent = heading;
+    legendBodyEl.textContent = body;
   }
 
   function computeBoard(cw, ch) {
@@ -571,8 +1042,11 @@
     pinned.style.height = `${ch}px`;
     canvas.width = Math.round(cw * dpr);
     canvas.height = Math.round(ch * dpr);
+    legacyCanvas.width = canvas.width;
+    legacyCanvas.height = canvas.height;
     board = computeBoard(cw, ch);
     unit = board.bw / UNIT_DIVISOR;
+    gameUnit = board.bw / GAME_UNIT_DIVISOR;
     render(lastT);
   }
 
@@ -580,6 +1054,22 @@
     const cx = board.bx + CENTER_FX * board.bw;
     const cy = board.by + CENTER_FY * board.bh;
     return { x: cx + (lx - VENN_OFFSET.x) * unit, y: cy + (ly - VENN_OFFSET.y) * unit };
+  }
+
+  // ---- Guess the Door: board <-> pixel mapping, same pattern as
+  // vennToBoard() above. Its own anchor (GAME_CENTER_FX/FY) and its own
+  // scale (GAME_UNIT_DIVISOR) are independent of phase 1's -- the two
+  // scenes never share the screen at full opacity (see the LEGACY_END
+  // fade in drawScene()), so there's no need for their coordinate
+  // systems to agree, only for each to be internally consistent.
+  function gameToBoard(lx, ly) {
+    const cx = board.bx + GAME_CENTER_FX * board.bw;
+    const cy = board.by + GAME_CENTER_FY * board.bh;
+    return { x: cx + lx * gameUnit, y: cy + ly * gameUnit };
+  }
+
+  function doorBoardPos(i) {
+    return gameToBoard(DOOR_LOCAL[i].x, DOOR_LOCAL[i].y);
   }
 
   // ---- Scroll -> t ----------------------------------------------------------
@@ -657,9 +1147,9 @@
     ctx.font = `${size}px ${FONT_FAMILY}`;
     ctx.textAlign = align || "left";
     ctx.textBaseline = "top";
-    ctx.shadowColor = rgbCss(SEED_GLOW, alpha * 0.7);
+    ctx.shadowColor = rgbCss(opts.glowColor || SEED_GLOW, alpha * 0.7);
     ctx.shadowBlur = size * 0.5;
-    ctx.fillStyle = rgbCss(LABEL_COLOR, alpha);
+    ctx.fillStyle = rgbCss(opts.color || LABEL_COLOR, alpha);
 
     let lines = [text];
     if (opts.maxWidth) {
@@ -1380,16 +1870,285 @@
   // manyScenariosBoostAt), stated in the legend card, not restated again
   // on the canvas.
 
-  function drawScene(t) {
-    const venn = drawVennProof(t);
-    drawCostChart(t);
-    drawCandidateStatement(t, venn);
-    drawScalePopulation(t, venn);
+  // =======================================================================
+  // ---- Guess the Door: rendering -----------------------------------------
+  // =======================================================================
+  // A plain stroked ring, with no fill and no glow halo -- used only for
+  // the "selected, not yet opened" outline below. Deliberately not
+  // drawOutlineDisc() (used throughout phase 1): that helper's line width
+  // is a fraction of phase 1's own `unit`, not `gameUnit`, and the two
+  // scale independently (see GAME_UNIT_DIVISOR's own note above) -- this
+  // keeps the ring's thickness tied to the same scale as everything else
+  // it's drawn alongside.
+  function drawRing(cx, cy, radius, color, alpha, lineWidth) {
+    if (alpha <= 0 || radius <= 0) return;
+    ctx.save();
+    ctx.strokeStyle = rgbCss(color, alpha);
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // A door's own marker: a filled *square* (soft glow halo still round --
+  // a glow is ambient light, not a shape claim), never a circle/disc. A
+  // disc is this piece's own fixed symbol for "a kernel," established
+  // from chapter 0 on; a door is a single element, not a kernel, and
+  // drawing it as its own disc would blur exactly the distinction the
+  // top-of-file note is built around. Used for every door point on both
+  // the main board and the cheat sheet's own mini-boards.
+  function drawSquareMarker(cx, cy, halfSize, color, alpha, haloMult) {
+    if (alpha <= 0 || halfSize <= 0) return;
+    const haloRadius = halfSize * (haloMult || 3.2);
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloRadius);
+    grad.addColorStop(0, rgbCss(color, alpha * 0.55));
+    grad.addColorStop(1, rgbCss(color, 0));
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, haloRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = rgbCss(color, alpha);
+    ctx.fillRect(cx - halfSize, cy - halfSize, halfSize * 2, halfSize * 2);
+  }
+
+  // The "selected, not yet opened" outline -- a square ring around a
+  // square marker, matching shapes (an earlier version used a circular
+  // ring here, which looked like a mismatched halo around a square peg).
+  function drawSquareRing(cx, cy, halfSize, color, alpha, lineWidth) {
+    if (alpha <= 0 || halfSize <= 0) return;
+    ctx.save();
+    ctx.strokeStyle = rgbCss(color, alpha);
+    ctx.lineWidth = lineWidth;
+    ctx.strokeRect(cx - halfSize, cy - halfSize, halfSize * 2, halfSize * 2);
+    ctx.restore();
+  }
+
+  // The complete graph on a set of board points -- every pair joined by
+  // drawGrowingLink at progress=1 (a plain, already-finished line; see
+  // its own definition above). This is how *every* kernel reads in this
+  // section, real group or live selection alike: not an enclosing shape
+  // (doors are points, not kernels themselves -- see the top-of-file
+  // note), but the relationship among its member points, made visible
+  // the same way a growing line already means "these are related"
+  // everywhere else in this piece.
+  function drawKernelFan(points, color, alpha) {
+    if (alpha <= 0 || points.length < 2) return;
+    for (let i = 0; i < points.length; i++) {
+      for (let j = i + 1; j < points.length; j++) drawGrowingLink(points[i], points[j], 1, alpha, color);
+    }
+  }
+
+  const DOOR_DOT_RADIUS_MULT = 0.075;
+
+  function drawGameBoard(alpha) {
+    if (alpha <= 0) return;
+    const dotRadius = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT, 5);
+
+    // The player's own live selection, drawn as a kernel fan in the same
+    // candidate-blue the cheat sheet's real groups use below -- both are
+    // literally the same role (a candidate subset of the 6-action
+    // universe), just one pre-agreed and one chosen on the spot.
+    const selPoints = [...selectedDoors].map(doorBoardPos);
+    drawKernelFan(selPoints, CANDIDATE_COLOR, alpha * 0.9);
+
+    for (let i = 0; i < NUM_DOORS; i++) {
+      const p = doorBoardPos(i);
+      const opened = openedDoors.has(i);
+      const selected = selectedDoors.has(i);
+      const isCar = opened && i === carDoor;
+      const isZonk = opened && i === zonkDoor;
+
+      let color = NEUTRAL;
+      let glowAlpha = alpha;
+      if (isCar) color = CORRECT_COLOR;
+      else if (isZonk) color = CATASTROPHIC_COLOR;
+      else if (selected) color = CANDIDATE_COLOR;
+      else if (opened) glowAlpha = alpha * 0.4; // opened, empty -- dims, doesn't vanish
+
+      drawSquareMarker(p.x, p.y, dotRadius, color, glowAlpha, 2.6);
+      if (selected && !opened) {
+        drawSquareRing(p.x, p.y, dotRadius * 2.1, CANDIDATE_COLOR, alpha * 0.85, Math.max(1.5, dotRadius * 0.3));
+      }
+      // Car/zonk reveal on open: color alone (green/red), no "correct"/
+      // "catastrophic" text label -- the prominent win/loss banner
+      // above the board (drawResultBanner, below) already says which
+      // happened; a per-door label repeated that.
+    }
+  }
+
+  // A prominent, plain-language result banner above the board -- "You
+  // win!!" or "You lose!", in the same green/red as the car/zonk squares
+  // themselves. Shown the moment a round resolves, replacing any per-
+  // door text label (see drawGameBoard above): one clear verdict reads
+  // better than two small captions the player has to go find on the
+  // board.
+  function drawResultBanner(alpha) {
+    if (alpha <= 0 || !roundResolved || lastRoundWin === null) return;
+    const sp = aliceSignalPos();
+    const color = lastRoundWin ? CORRECT_COLOR : CATASTROPHIC_COLOR;
+    drawLabel(lastRoundWin ? "You win!!" : "You lose!", sp.x, sp.y - gameUnit * 0.16, alpha, "center", {
+      sizeMult: 1.3,
+      anchor: "bottom",
+      color,
+      glowColor: color,
+    });
+  }
+
+  // Alice's 2-bit signal: two small marks, filled = 1, hollow = 0 -- the
+  // same filled/outline distinction phase 1 already uses for disc states
+  // (drawGlow vs. drawOutlineDisc's empty fill) rather than a new visual
+  // vocabulary. Reused identically for the main board's own signal and
+  // for each cheat-sheet row's copy (see drawCheatSheet below).
+  function drawSignalIndicator(cx, cy, groupIndex, dotRadius, gap, alpha, color) {
+    if (alpha <= 0 || groupIndex < 0) return;
+    const bits = groupIndex.toString(2).padStart(2, "0");
+    for (let k = 0; k < 2; k++) {
+      const x = cx + (k - 0.5) * gap;
+      if (bits[k] === "1") drawGlow(x, cy, dotRadius, color, alpha, 2.4);
+      else drawRing(x, cy, dotRadius, color, alpha * 0.85, Math.max(1, dotRadius * 0.3));
+    }
+  }
+
+  function aliceSignalPos() {
+    const c = gameToBoard(0, 0);
+    return { x: c.x, y: c.y - gameUnit * (GAME_R_SIDE + 0.36) };
+  }
+
+  function tallyPos() {
+    const c = gameToBoard(0, 0);
+    return { x: c.x, y: c.y + gameUnit * (GAME_R_SIDE + 0.3) };
+  }
+
+  // A persistent win/loss tally -- plain drawLabel text, no separate DOM
+  // scorecard (consistent with "the legend card is the only place any of
+  // this piece's prose lives," extended here to game state as well: the
+  // canvas speaks through shape, color, and the numbers themselves).
+  function drawTally(alpha) {
+    if (alpha <= 0) return;
+    const p = tallyPos();
+    drawLabel(`Wins ${winTally}  \u00B7  Losses ${lossTally}`, p.x, p.y, alpha, "center", { sizeMult: 0.85 });
+  }
+
+  // ---- The cheat sheet: 4 small copies of the same 6-point layout, each
+  // with its own group's vertex star connected and its own 2-bit signal
+  // shown alongside. A 2x2 grid (not 4-in-a-row): comfortably clears a
+  // narrow mobile board width at any reasonable mini-board size, where 4
+  // side-by-side copies would not.
+  const CHEATSHEET_COL_FX = [0.28, 0.72];
+  const CHEATSHEET_ROW_FY = [0.53, 0.66];
+  const CHEATSHEET_MINI_UNIT_MULT = 0.28;
+  // How far above its own mini-board's top point (local y = -0.25, the
+  // two side doors) the mini signal indicator sits. Was 0.32 (measured
+  // from the board's own *center*, not its edge) -- large enough that
+  // the second row's own signal read as ambiguously close to the *first*
+  // row's board instead of its own, reported directly. Measured from the
+  // board's top edge instead, and shrunk, so the indicator reads as
+  // sitting right above its own diagram specifically.
+  const CHEATSHEET_SIGNAL_GAP_MULT = 0.22;
+
+  function cheatsheetSlot(g) {
+    const col = g % 2;
+    const row = Math.floor(g / 2);
+    return { x: board.bx + CHEATSHEET_COL_FX[col] * board.bw, y: board.by + CHEATSHEET_ROW_FY[row] * board.bh };
+  }
+
+  function drawCheatSheet(alpha) {
+    if (alpha <= 0) return;
+    const miniUnit = gameUnit * CHEATSHEET_MINI_UNIT_MULT;
+    const dotRadius = Math.max(miniUnit * DOOR_DOT_RADIUS_MULT * 1.6, 2.5);
+    for (let g = 0; g < GROUPS.length; g++) {
+      const slot = cheatsheetSlot(g);
+      const doors = GROUPS[g].map((b, i) => (b ? i : -1)).filter((i) => i >= 0);
+      const miniPos = (i) => ({ x: slot.x + DOOR_LOCAL[i].x * miniUnit, y: slot.y + DOOR_LOCAL[i].y * miniUnit });
+      for (let i = 0; i < NUM_DOORS; i++) {
+        const p = miniPos(i);
+        const inGroup = doors.includes(i);
+        drawSquareMarker(p.x, p.y, dotRadius, inGroup ? CANDIDATE_COLOR : NEUTRAL, alpha * (inGroup ? 1 : 0.3), 2.2);
+      }
+      drawKernelFan(doors.map(miniPos), CANDIDATE_COLOR, alpha * 0.9);
+      const signalY = slot.y - miniUnit * (0.25 + CHEATSHEET_SIGNAL_GAP_MULT);
+      drawSignalIndicator(slot.x, signalY, g, dotRadius * 0.85, dotRadius * 3.2, alpha, NEUTRAL);
+    }
+  }
+
+  function drawGameScene(tGame) {
+    const boardAppear = smoothstep(CHG.transitionEnd, CHG.boardEnd, tGame);
+    const signalAppear = smoothstep(CHG.boardEnd, CHG.signalEnd, tGame);
+    const playAppear = smoothstep(CHG.signalEnd, CHG.playArrive, tGame);
+
+    drawGameBoard(boardAppear);
+    if (signalAppear > 0) {
+      const sp = aliceSignalPos();
+      drawSignalIndicator(sp.x, sp.y, hintedGroup, Math.max(gameUnit * 0.055, 3), gameUnit * 0.32, signalAppear, NEUTRAL);
+    }
+    if (playAppear > 0) {
+      drawTally(playAppear);
+      drawResultBanner(playAppear);
+    }
+    if (cheatsheetRevealed) drawCheatSheet(1);
+  }
+
+  // Called after every game-state change (a click or a button) -- game
+  // state can change with the scroll position perfectly still, unlike
+  // everything upstream of chapter 4, so a re-render can't wait for t to
+  // change on its own the way frame()'s own loop otherwise assumes.
+  function refreshGameUI() {
+    render(lastT);
+    updateLegend(lastT);
+  }
+
+  function syncGameControls(interactive) {
+    gameControlsEl.hidden = !interactive;
+    if (!interactive) return;
+    gameOpenBtn.disabled = selectedDoors.size === 0 || roundResolved;
+    gameRevealBtn.hidden = !(roundResolved && !cheatsheetRevealed);
+    gameNewRoundBtn.hidden = !roundResolved;
+  }
+
+  function drawScene(tOuter) {
+    const tOld = clamp(tOuter / LEGACY_END, 0, 1);
+    const tGame = tGameOf(tOuter);
+
+    // Phase 1's diagram/tile/chart fade out together, one shot (no fade
+    // back in), right as phase 2's own transition chapter begins -- the
+    // same one-shot captionAlpha idiom used throughout phase 1, just
+    // applied to the *whole* old scene at once via a single composited
+    // image rather than threaded through every one of its own alpha
+    // parameters. See the LEGACY_END note above for why.
+    const legacyAlpha = tOuter < LEGACY_END ? 1 : 1 - smoothstep(0, CHG.transitionEnd, tGame);
+    if (legacyAlpha > 0) {
+      const mainCtx = ctx;
+      legacyCtx.clearRect(0, 0, legacyCanvas.width, legacyCanvas.height);
+      ctx = legacyCtx;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const venn = drawVennProof(tOld);
+      drawCostChart(tOld);
+      drawCandidateStatement(tOld, venn);
+      drawScalePopulation(tOld, venn);
+      ctx = mainCtx;
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = legacyAlpha;
+      ctx.drawImage(legacyCanvas, 0, 0);
+      ctx.restore();
+    }
+
+    if (tOuter >= LEGACY_END) drawGameScene(tGame);
   }
 
   // ---- Top-level render -------------------------------------------------------
   function render(t) {
     lastT = t;
+
+    // Detected -- and reset -- *before* drawScene() runs, not after: this
+    // way the reset state is simply what this same render() call draws,
+    // with no second, re-entrant render() needed (resetGameToInitialState
+    // itself never calls render()). See wasInteractive's own note above.
+    const interactive = isGameInteractive(t);
+    if (wasInteractive && !interactive) resetGameToInitialState();
+    wasInteractive = interactive;
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1402,6 +2161,7 @@
     drawScene(t);
 
     ctx.restore();
+    syncGameControls(interactive);
   }
 
   // ---- Main loop: t is the only input -- nothing here is driven by
@@ -1425,6 +2185,33 @@
     updateLegend(t);
     requestAnimationFrame(frame);
   }
+
+  // ---- Guess the Door: interaction ---------------------------------------
+  // A door is a point, not a DOM element (unlike the standalone demo's
+  // own wooden <div> doors) -- so "clicking a door" is canvas hit-
+  // testing against the same fixed positions everything else here draws
+  // from, not a click listener per door.
+  function onCanvasClick(e) {
+    if (!isGameInteractive(lastT)) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const hitRadius = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT * 2.2, 16);
+    for (let i = 0; i < NUM_DOORS; i++) {
+      const p = doorBoardPos(i);
+      const dx = x - p.x;
+      const dy = y - p.y;
+      if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+        toggleDoor(i);
+        return;
+      }
+    }
+  }
+
+  canvas.addEventListener("click", onCanvasClick);
+  gameOpenBtn.addEventListener("click", openSelected);
+  gameRevealBtn.addEventListener("click", revealCheatsheet);
+  gameNewRoundBtn.addEventListener("click", startNewRound);
 
   window.addEventListener("resize", resize);
   resize();

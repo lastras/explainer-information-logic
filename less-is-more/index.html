@@ -19,9 +19,27 @@
 <div class="scroll-track" id="scrollTrack">
   <div class="pinned">
     <canvas id="scene"></canvas>
-    <div class="legend" id="legend">
-      <h3 id="legendHeading"></h3>
-      <p id="legendBody"></p>
+    <!-- Both the legend card and the game's own controls are bottom-
+         anchored as *one* flex stack (not two independently absolute-
+         positioned elements): when the button row is shown, it should
+         sit directly above the legend, growing the stack upward, not
+         float at a fixed offset computed independently of the legend's
+         own (variable) height -- an earlier version did the latter and
+         the button row ended up overlapping the legend body text. -->
+    <div class="bottom-stack">
+      <!-- "Guess the Door" game controls -- the only new DOM in this
+           piece. Plain buttons, shown/hidden by script.js as the game's
+           own state machine (not scroll position) progresses; see
+           script.js's own "Guess the Door" section for why. -->
+      <div class="game-controls" id="gameControls" hidden>
+        <button id="gameOpenBtn" class="game-btn game-btn-primary" type="button">Open selected</button>
+        <button id="gameRevealBtn" class="game-btn" type="button" hidden>Reveal the cheat sheet</button>
+        <button id="gameNewRoundBtn" class="game-btn" type="button" hidden>Play again</button>
+      </div>
+      <div class="legend" id="legend">
+        <h3 id="legendHeading"></h3>
+        <p id="legendBody"></p>
+      </div>
     </div>
   </div>
 </div>

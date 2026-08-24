@@ -14,10 +14,21 @@ html, body {
 
 /* The scrub range. Height is large relative to the viewport so that a full
    pass through all chapters corresponds to a comfortable amount of scroll
-   travel. The piece ends on the resting frame, holding there. */
+   travel. 1000vh, not the original 600vh: phase 2 ("Guess the Door") added
+   a second half past the original ending, and LEGACY_END in script.js
+   (5/9) was solved so that the *original* content still gets exactly the
+   600vh-equivalent scroll range it was tuned and verified against
+   (1000vh - 100vh viewport) * 5/9 = 500vh, matching the old track's own
+   effective (600vh - 100vh) scroll range exactly -- see script.js's own
+   note on LEGACY_END for why this matters (every hand-tuned margin and
+   boost-window offset in phase 1 assumes this same scroll-pixel budget;
+   changing it without also rescaling every one of those offsets would
+   silently speed up or slow down all of phase 1's own pacing). The piece
+   now ends on a *new* resting frame -- the game, playable with the code
+   -- past that point. */
 .scroll-track {
   position: relative;
-  height: 600vh;
+  height: 1000vh;
   background: var(--bg);
 }
 
@@ -39,16 +50,30 @@ html, body {
   height: 100%;
 }
 
+/* The legend card and the game's own button row, stacked as one bottom-
+   anchored flex column (see index.html's own note): whichever of the
+   two is actually visible, the stack's bottom edge always lands at the
+   same 6% from the viewport bottom, and a visible button row simply
+   grows the stack upward, directly above the legend, instead of being
+   positioned independently of the legend's own (variable) height. */
+.bottom-stack {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  width: min(560px, 86vw);
+}
+
 /* A caption card overlaid on the pinned graphic, near the bottom of the
    viewport. Its heading/body text is swapped by script.js as t crosses
    each chapter boundary, so the explanation progresses alongside the
    graphic instead of arriving as one block of text after it. */
 .legend {
-  position: absolute;
-  left: 50%;
-  bottom: 6%;
-  transform: translateX(-50%);
-  width: min(560px, 86vw);
+  width: 100%;
   background: rgba(5, 2, 8, 0.78);
   border: 1px solid rgba(184, 255, 250, 0.22);
   border-radius: 12px;
@@ -69,4 +94,59 @@ html, body {
   font-size: 0.92rem;
   line-height: 1.55;
   margin: 0;
+}
+
+/* "Guess the Door" game controls -- the only clickable DOM this piece
+   adds. Same horizontal width as the legend card (see .bottom-stack
+   above), and deliberately plain: a dark, translucent pill matching the
+   legend card's own border/background treatment rather than introducing
+   a new visual language of its own. Unlike .legend (pointer-events:
+   none, a pure caption overlay), these need pointer-events: auto to
+   actually be clickable. */
+.game-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+/* Without this, the unconditional `display: flex` above outranks the
+   browser's own default `[hidden] { display: none }` rule (an author
+   class selector beats a UA-stylesheet attribute selector), so setting
+   the `hidden` property from script.js would do nothing and the button
+   row would stay visible the entire time -- caught by screenshotting the
+   very first frame, where it visibly sat on top of the legend body text
+   long before the game becomes interactive. */
+.game-controls[hidden] {
+  display: none;
+}
+
+.game-btn {
+  pointer-events: auto;
+  cursor: pointer;
+  background: rgba(5, 2, 8, 0.78);
+  border: 1px solid rgba(184, 255, 250, 0.35);
+  border-radius: 8px;
+  color: #cdd3da;
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.9rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.game-btn:hover:not(:disabled) {
+  background: rgba(184, 255, 250, 0.12);
+  border-color: rgba(184, 255, 250, 0.6);
+}
+
+.game-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.game-btn-primary {
+  color: #9fe8db;
+  border-color: rgba(184, 255, 250, 0.55);
 }
