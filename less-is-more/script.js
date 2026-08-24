@@ -200,6 +200,13 @@
     // fades in near the board
     playArrive: 0.85, // 7: "Play, blind" -- the board stops following t
     // from here on; see the note above.
+    tetraStart: 0.92, // 8: the geometric reveal -- a real, drag-rotatable
+    // 3D tetrahedron, vertices labeled with Alice's own 4 codes, edges
+    // drawn as small cubes standing for the 6 doors. Reached only by
+    // scrolling *past* the interactive game (the legend explicitly
+    // invites this: "scroll down when you're ready"), not by any game
+    // action -- isGameInteractive() below stops being true once tGame
+    // reaches this point, same way it starts being true at playArrive.
   };
 
   // ---- Legend copy, synchronized to the same chapter boundaries as the
@@ -325,9 +332,8 @@
   const GAME_LEGEND_CHUNKS = [
     {
       from: 0,
-      heading: "Here's what this looks like, concretely",
-      body:
-        "Alice needs to get you safely to a prize \u2014 but she can't just show you everything she knows. Here's the same idea as before, played out as a simple game.",
+      heading: "Let's demonstrate this with a game",
+      body: "Alice needs to get you safely to a prize \u2014 but she can't just show you everything she knows.",
     },
     {
       from: CHG.transitionEnd,
@@ -371,12 +377,23 @@
     cheatsheet: {
       heading: "The short list, made concrete",
       body:
-        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six doors. (Bonus fact: these six doors are a tetrahedron's six edges; each group is the three edges meeting at one corner.)",
+        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six doors. Try a few more rounds with the code in hand \u2014 then scroll down whenever you're ready to see where this particular list actually comes from.",
     },
     hinted: {
       heading: "Play, with the code",
-      body: "Decode Alice's signal, open exactly that group's doors, and win every time.",
+      body:
+        "Decode Alice's signal, open exactly that group's doors, and win every time. Scroll down whenever you're ready to see where this particular list comes from.",
     },
+  };
+
+  // From CHG.tetraStart on, reached only by scrolling *past* the
+  // interactive game (never by a game action) -- see CHG's own note.
+  // Not keyed to gamePhase at all: by the time anyone scrolls this far
+  // they've already engaged with the game however much they wanted to.
+  const TETRA_REVEAL_TEXT = {
+    heading: "Where this code comes from",
+    body:
+      "This 4-entry list isn't arbitrary: it's the vertex structure of a tetrahedron. Each corner is one of Alice's own 4 codes; each edge \u2014 drawn here as a small cube \u2014 is one of the 6 doors, sitting exactly where its two codes meet. Drag to rotate it.",
   };
 
   // ---- Palette -------------------------------------------------------------
@@ -844,6 +861,96 @@
     }
   })();
 
+  // =======================================================================
+  // ---- The geometric reveal: a real, drag-rotatable 3D tetrahedron -------
+  // =======================================================================
+  // The SAME fact verifyGameGeometry() above already checks in 2D (group g
+  // is exactly the 3 doors/edges meeting at vertex g of a tetrahedron) is
+  // true in genuine 3D, not just in this file's own flattened drawing of
+  // it. A regular tetrahedron's 4 vertices, via the standard alternating-
+  // cube-corners construction (verified once, in Node, before writing any
+  // of this: all 6 edges come out equal). Assigned to groups 0-3 in the
+  // same order GROUPS itself lists them -- no separate remapping to keep
+  // in sync.
+  const TETRA_VERTS_3D = [
+    { x: 1, y: 1, z: 1 }, // group 0
+    { x: 1, y: -1, z: -1 }, // group 1
+    { x: -1, y: 1, z: -1 }, // group 2
+    { x: -1, y: -1, z: 1 }, // group 3
+  ];
+
+  // Door i's two group-memberships, i.e. which two vertices its own edge
+  // connects -- the exact same computation verifyGameGeometry() above
+  // does for its 2D check, re-derived here from GROUPS directly rather
+  // than hand-typed a second time, and kept as its own named constant
+  // since both DOOR_LOCAL_3D and the edge-drawing below need it.
+  const DOOR_VERTEX_PAIRS = GROUPS[0].map((_, d) => {
+    const gs = [];
+    for (let g = 0; g < GROUPS.length; g++) if (GROUPS[g][d] === 1) gs.push(g);
+    return gs;
+  });
+
+  // Each door sits at the midpoint of the edge between its own two group-
+  // vertices. Verified once, in Node: these 6 midpoints land exactly on
+  // the three coordinate axes (a regular tetrahedron's edge-midpoints
+  // always form a regular octahedron) -- a clean, symmetric layout, not
+  // a coincidence of this specific construction.
+  const DOOR_LOCAL_3D = DOOR_VERTEX_PAIRS.map(([a, b]) => ({
+    x: (TETRA_VERTS_3D[a].x + TETRA_VERTS_3D[b].x) / 2,
+    y: (TETRA_VERTS_3D[a].y + TETRA_VERTS_3D[b].y) / 2,
+    z: (TETRA_VERTS_3D[a].z + TETRA_VERTS_3D[b].z) / 2,
+  }));
+
+  // A cube's 8 corners, relative to its own center, indexed so that the
+  // 6 faces below are each exactly "one coordinate held fixed at +-1."
+  const CUBE_CORNERS_UNIT = [
+    { x: -1, y: -1, z: -1 }, // 0
+    { x: 1, y: -1, z: -1 }, // 1
+    { x: 1, y: 1, z: -1 }, // 2
+    { x: -1, y: 1, z: -1 }, // 3
+    { x: -1, y: -1, z: 1 }, // 4
+    { x: 1, y: -1, z: 1 }, // 5
+    { x: 1, y: 1, z: 1 }, // 6
+    { x: -1, y: 1, z: 1 }, // 7
+  ];
+  // Each face as a corner-index list, wound so that (corner1-corner0) x
+  // (corner2-corner0) points *outward* -- this is what makes the simple
+  // per-face lighting below ("does this face's own outward normal point
+  // toward the camera") come out with the correct sign, not flipped.
+  const CUBE_FACES = [
+    [0, 3, 2, 1], // z-
+    [4, 5, 6, 7], // z+
+    [0, 1, 5, 4], // y-
+    [3, 7, 6, 2], // y+
+    [0, 4, 7, 3], // x-
+    [1, 2, 6, 5], // x+
+  ];
+
+  function rotatePoint3D(p, angleX, angleY) {
+    const cx = Math.cos(angleX), sx = Math.sin(angleX);
+    const y1 = p.y * cx - p.z * sx;
+    const z1 = p.y * sx + p.z * cx;
+    const cy = Math.cos(angleY), sy = Math.sin(angleY);
+    const x2 = p.x * cy + z1 * sy;
+    const z2 = -p.x * sy + z1 * cy;
+    return { x: x2, y: y1, z: z2 };
+  }
+
+  // Simple perspective projection. Convention: the camera sits on the
+  // +z side looking toward -z, so *larger* p.z (closer to the camera)
+  // must produce a *larger* scale -- `TETRA_FOCAL / (TETRA_FOCAL - p.z)`,
+  // not `+ p.z` (an earlier version had the sign backward, caught by
+  // screenshotting it: faces facing the camera came out smaller than
+  // the ones facing away). TETRA_FOCAL is in the same local 3D units as
+  // TETRA_VERTS_3D/DOOR_LOCAL_3D (vertices at distance sqrt(3) from the
+  // origin); picked once by screenshotting a few candidate values for a
+  // convincing but not distorted amount of perspective, not derived.
+  const TETRA_FOCAL = 5;
+  function project3D(p, cx, cy, scale) {
+    const s = (TETRA_FOCAL / (TETRA_FOCAL - p.z)) * scale;
+    return { x: cx + p.x * s, y: cy + p.y * s, depth: p.z };
+  }
+
   // ---- Game state (never rendered directly -- only through the board's
   // own selected/opened point styling and the reveal labels) -----------
   let carDoor = 0;
@@ -857,6 +964,19 @@
   let gamePhase = "blind"; // 'blind' | 'cheatsheet' | 'hinted'
   let winTally = 0;
   let lossTally = 0;
+
+  // The tetrahedron reveal's own state: real user input (a drag), not
+  // wall-clock time -- it changes only when the user actually drags, and
+  // holds exactly still otherwise, the same "static unless something
+  // changes" rule every other piece of interactive state in this file
+  // already follows. A gentle fixed starting angle (not front-on to any
+  // single vertex or edge) so the shape reads as 3D immediately, before
+  // anyone has dragged it at all.
+  let tetraRotX = -0.35;
+  let tetraRotY = 0.6;
+  let tetraDragging = false;
+  let tetraLastPointerX = 0;
+  let tetraLastPointerY = 0;
 
   function randomInt(n) {
     return Math.floor(Math.random() * n);
@@ -1005,11 +1125,37 @@
     return clamp((tOuter - LEGACY_END) / (1 - LEGACY_END), 0, 1);
   }
 
-  // True once the board has arrived at "Play, blind" (CHG.playArrive) and
-  // stopped following t -- the single predicate both the click handler
-  // and the render/legend logic below use, so "is the game interactive
-  // right now" is decided in exactly one place.
+  // True for the whole stretch the board has arrived at "Play, blind"
+  // (CHG.playArrive) and stopped following t, up until scrolling *past*
+  // it reaches the geometric reveal (CHG.tetraStart) -- the single
+  // predicate the door-click handler and the render/legend logic below
+  // all use, so "is the game interactive right now" is decided in
+  // exactly one place. False again past tetraStart: that scene has its
+  // own, different interaction (drag-to-rotate, see isTetraActive below).
   function isGameInteractive(tOuter) {
+    const tGame = tGameOf(tOuter);
+    return tOuter >= LEGACY_END && tGame >= CHG.playArrive && tGame < CHG.tetraStart;
+  }
+
+  // The tetrahedron reveal's own equivalent of isGameInteractive(): true
+  // once scrolling has reached it. Used to gate the drag-to-rotate
+  // listeners so a drag there can never be mistaken for a door click (or
+  // vice versa) -- the two scenes' own interactions never overlap.
+  function isTetraActive(tOuter) {
+    return tOuter >= LEGACY_END && tGameOf(tOuter) >= CHG.tetraStart;
+  }
+
+  // Whether the game session has been *reached at all* -- true for the
+  // door-clicking zone *and* the tetrahedron reveal past it, false only
+  // before CHG.playArrive. Deliberately different from isGameInteractive
+  // (which goes false again at tetraStart): this one is used only to
+  // detect "scrolled backward out of the game entirely" for the reset
+  // in render() below, and scrolling *forward* into the tetrahedron
+  // reveal must not trip that same reset -- using isGameInteractive
+  // itself for this would reset the game (cheat sheet, tally, ...) the
+  // instant anyone scrolled past playArrive into the reveal, caught
+  // before it shipped.
+  function hasReachedGame(tOuter) {
     return tOuter >= LEGACY_END && tGameOf(tOuter) >= CHG.playArrive;
   }
 
@@ -1030,7 +1176,7 @@
         heading = GAME_LEGEND_CHUNKS[idx].heading;
         body = GAME_LEGEND_CHUNKS[idx].body;
         key = "game" + idx;
-      } else {
+      } else if (tGame < CHG.tetraStart) {
         // Legend text is keyed to gamePhase itself here, not to tGame --
         // see the CHG.playArrive note above for why the board and the
         // legend both switch from following t to following real game
@@ -1039,6 +1185,12 @@
         heading = g.heading;
         body = g.body;
         key = "phase-" + gamePhase;
+      } else {
+        // Back to t-driven once more, and *not* keyed to gamePhase --
+        // see CHG.tetraStart's own note above.
+        heading = TETRA_REVEAL_TEXT.heading;
+        body = TETRA_REVEAL_TEXT.body;
+        key = "tetra";
       }
     }
     if (key === legendChunkKey) return;
@@ -2112,10 +2264,117 @@
     }
   }
 
+  // ---- The geometric reveal's own rendering ------------------------------
+  const TETRA_SCALE_MULT = 0.62; // gameUnit -> pixels-per-local-3D-unit
+  const TETRA_CUBE_HALF = 0.16; // in the same local units as DOOR_LOCAL_3D
+
+  // One shaded, flat-lit cube, standing for door `doorIndex`, drawn in
+  // its own current rotated/projected position. Faces are lit by how
+  // directly their own (rotated) outward normal points toward the
+  // camera -- the same simple flat-shading model any basic 3D renderer
+  // uses -- purely so the cube reads as a cube from any angle, not for
+  // its own sake.
+  function drawTetraCube(doorIndex, cx, cy, scale, alpha) {
+    const center = DOOR_LOCAL_3D[doorIndex];
+    const cornersRot = CUBE_CORNERS_UNIT.map((u) =>
+      rotatePoint3D(
+        {
+          x: center.x + u.x * TETRA_CUBE_HALF,
+          y: center.y + u.y * TETRA_CUBE_HALF,
+          z: center.z + u.z * TETRA_CUBE_HALF,
+        },
+        tetraRotX,
+        tetraRotY
+      )
+    );
+    const cornersProj = cornersRot.map((p) => project3D(p, cx, cy, scale));
+
+    const faces = CUBE_FACES.map((idxs) => {
+      const p = idxs.map((i) => cornersRot[i]);
+      const e1 = { x: p[1].x - p[0].x, y: p[1].y - p[0].y, z: p[1].z - p[0].z };
+      const e2 = { x: p[3].x - p[0].x, y: p[3].y - p[0].y, z: p[3].z - p[0].z };
+      const n = { x: e1.y * e2.z - e1.z * e2.y, y: e1.z * e2.x - e1.x * e2.z, z: e1.x * e2.y - e1.y * e2.x };
+      const nlen = Math.sqrt(n.x * n.x + n.y * n.y + n.z * n.z) || 1;
+      const nz = n.z / nlen; // > 0: outward normal points toward the camera
+      const avgDepth = (p[0].z + p[1].z + p[2].z + p[3].z) / 4;
+      return { idxs, nz, avgDepth };
+    });
+
+    faces
+      .filter((f) => f.nz > 0) // back-face culling: only draw camera-facing faces
+      .sort((a, b) => a.avgDepth - b.avgDepth) // painter's algorithm within this cube
+      .forEach((f) => {
+        const pts = f.idxs.map((i) => cornersProj[i]);
+        const brightness = 0.5 + 0.5 * f.nz;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
+        ctx.closePath();
+        ctx.fillStyle = rgbCss(CANDIDATE_COLOR, alpha * brightness * 0.85);
+        ctx.fill();
+        ctx.strokeStyle = rgbCss(NEUTRAL, alpha * 0.4);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      });
+  }
+
+  // The tetrahedron itself: 4 vertices (Alice's own 4 codes, labeled
+  // directly in binary -- the same encoding drawSignalIndicator already
+  // decodes elsewhere, not a new one) and 6 edges, each edge a door,
+  // drawn as a small cube sitting exactly where its two codes meet.
+  // Rotation is whatever the user has last dragged it to (tetraRotX/Y);
+  // nothing here depends on t at all beyond the one alpha fade-in.
+  function drawTetrahedronReveal(alpha) {
+    if (alpha <= 0) return;
+    const c = gameToBoard(0, 0);
+    const cx = c.x, cy = c.y;
+    const scale = gameUnit * TETRA_SCALE_MULT;
+
+    const vertsRot = TETRA_VERTS_3D.map((v) => rotatePoint3D(v, tetraRotX, tetraRotY));
+    const doorsRot = DOOR_LOCAL_3D.map((d) => rotatePoint3D(d, tetraRotX, tetraRotY));
+
+    // Wireframe edges first -- always behind the vertices/cubes drawn
+    // over them next.
+    for (const [a, b] of DOOR_VERTEX_PAIRS) {
+      const p1 = project3D(vertsRot[a], cx, cy, scale);
+      const p2 = project3D(vertsRot[b], cx, cy, scale);
+      drawGrowingLink(p1, p2, 1, alpha * 0.55, CANDIDATE_COLOR);
+    }
+
+    // Vertices and door-cubes share a single back-to-front draw order,
+    // so a cube behind a vertex (or another cube) is correctly covered
+    // by it, from whatever angle the shape has been dragged to.
+    const items = [];
+    vertsRot.forEach((v, i) => items.push({ isVertex: true, index: i, depth: v.z }));
+    doorsRot.forEach((d, i) => items.push({ isVertex: false, index: i, depth: d.z }));
+    items.sort((p, q) => p.depth - q.depth);
+
+    for (const item of items) {
+      if (item.isVertex) {
+        const p = project3D(vertsRot[item.index], cx, cy, scale);
+        const dotR = Math.max(gameUnit * 0.05, 4);
+        drawGlow(p.x, p.y, dotR, NEUTRAL, alpha, 2.4);
+        drawLabel(item.index.toString(2).padStart(2, "0"), p.x, p.y - dotR * 2.8, alpha, "center", { sizeMult: 0.78 });
+      } else {
+        drawTetraCube(item.index, cx, cy, scale, alpha);
+      }
+    }
+  }
+
   function drawGameScene(tGame) {
-    const boardAppear = smoothstep(CHG.transitionEnd, CHG.doorsEnd, tGame);
-    const signalAppear = smoothstep(CHG.enoughEnd, CHG.signalEnd, tGame);
-    const playAppear = smoothstep(CHG.signalEnd, CHG.playArrive, tGame);
+    // The geometric reveal takes over the whole scene once reached; the
+    // 2D board/tally/cheat sheet fade out as it fades in (a one-way
+    // fade -- captionAlpha with no outStart/outEnd -- since this is the
+    // piece's own final resting state, not something meant to fade back
+    // out again on continued scrolling).
+    const tetraAlpha = captionAlpha(tGame, CHG.tetraStart, CHG.tetraStart + 0.03, null, null);
+    const fade2D = 1 - tetraAlpha;
+
+    const boardAppear = smoothstep(CHG.transitionEnd, CHG.doorsEnd, tGame) * fade2D;
+    const signalAppear = smoothstep(CHG.enoughEnd, CHG.signalEnd, tGame) * fade2D;
+    const playAppear = smoothstep(CHG.signalEnd, CHG.playArrive, tGame) * fade2D;
 
     drawGameBoard(boardAppear);
     if (signalAppear > 0) {
@@ -2126,7 +2385,9 @@
       drawTally(playAppear);
       drawResultBanner(playAppear);
     }
-    if (cheatsheetRevealed) drawCheatSheet(1);
+    if (cheatsheetRevealed && fade2D > 0) drawCheatSheet(fade2D);
+
+    drawTetrahedronReveal(tetraAlpha);
   }
 
   // Called after every game-state change (a click or a button) -- game
@@ -2184,10 +2445,12 @@
     // Detected -- and reset -- *before* drawScene() runs, not after: this
     // way the reset state is simply what this same render() call draws,
     // with no second, re-entrant render() needed (resetGameToInitialState
-    // itself never calls render()). See wasInteractive's own note above.
-    const interactive = isGameInteractive(t);
-    if (wasInteractive && !interactive) resetGameToInitialState();
-    wasInteractive = interactive;
+    // itself never calls render()). Uses hasReachedGame(), not
+    // isGameInteractive() -- see hasReachedGame's own note above for why
+    // that distinction matters here specifically.
+    const reachedGame = hasReachedGame(t);
+    if (wasInteractive && !reachedGame) resetGameToInitialState();
+    wasInteractive = reachedGame;
 
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2200,7 +2463,7 @@
     drawScene(t);
 
     ctx.restore();
-    syncGameControls(interactive);
+    syncGameControls(isGameInteractive(t));
   }
 
   // ---- Main loop: t is the only input -- nothing here is driven by
@@ -2251,6 +2514,44 @@
   gameOpenBtn.addEventListener("click", openSelected);
   gameRevealBtn.addEventListener("click", revealCheatsheet);
   gameNewRoundBtn.addEventListener("click", startNewRound);
+
+  // ---- The geometric reveal's own interaction: drag to rotate ------------
+  // Pointer Events, not separate mouse/touch handlers -- one code path
+  // for mouse, touch, and pen alike. setPointerCapture keeps delivering
+  // move/up events to the canvas even if the pointer strays outside it
+  // mid-drag, the standard way to implement a drag gesture without
+  // needing window-level listeners. Guarded by isTetraActive(), the
+  // mirror image of onCanvasClick's own isGameInteractive() guard, so
+  // the two interactions -- door clicks, tetrahedron drags -- can never
+  // fire in the same scene.
+  function onTetraPointerDown(e) {
+    if (!isTetraActive(lastT)) return;
+    tetraDragging = true;
+    tetraLastPointerX = e.clientX;
+    tetraLastPointerY = e.clientY;
+    canvas.setPointerCapture(e.pointerId);
+  }
+
+  function onTetraPointerMove(e) {
+    if (!tetraDragging) return;
+    const dx = e.clientX - tetraLastPointerX;
+    const dy = e.clientY - tetraLastPointerY;
+    tetraLastPointerX = e.clientX;
+    tetraLastPointerY = e.clientY;
+    const sensitivity = 0.008;
+    tetraRotY += dx * sensitivity;
+    tetraRotX += dy * sensitivity;
+    render(lastT);
+  }
+
+  function onTetraPointerUp() {
+    tetraDragging = false;
+  }
+
+  canvas.addEventListener("pointerdown", onTetraPointerDown);
+  canvas.addEventListener("pointermove", onTetraPointerMove);
+  canvas.addEventListener("pointerup", onTetraPointerUp);
+  canvas.addEventListener("pointercancel", onTetraPointerUp);
 
   window.addEventListener("resize", resize);
   resize();
