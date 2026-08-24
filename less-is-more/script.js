@@ -181,34 +181,37 @@
   // state (clicks) at that point. Scrolling further still "works"
   // (nothing breaks), it just has nothing left to drive.
   const CHG = {
-    storyEnd: 0.08, // 1: the story's own opening beat; phase 1's own
+    storyEnd: 0.06, // 1: the story's own opening beat; phase 1's own
     // diagram/tile/chart fade out together here, one shot, no fade back
     // in (captionAlpha with no inStart..inEnd half -- the same one-shot
     // pattern candidateEnd's own sentence fade-outs already use
     // elsewhere in this file).
-    setupEnd: 0.2, // 2: "six actions, one correct, one catastrophic" --
+    setupEnd: 0.16, // 2: "six buttons, one correct, one catastrophic" --
     // the setting itself, established *before* the word "world" is
-    // used for it (an earlier version jumped straight to "a world is
-    // which one is correct," landing as a non sequitur, reported
-    // directly). The 6 door-points fade in here.
-    worldEnd: 0.32, // 3: *now* "a world, here, is which action is
-    // correct *and* which is catastrophic" lands -- the setting it
-    // refers to already exists on screen and in the legend's own
-    // preceding card.
-    kernelEnd: 0.46, // 4: Alice's own kernel, by a concrete example --
-    // one door highlighted green (correct), one red (catastrophic),
-    // and a small circle (cyan, matching kappa(S)'s own color from
-    // phase 1) around just the correct one
-    queryEnd: 0.6, // 5: the query Alice's task is to let Bob prove, by
-    // the same example -- a bigger circle (amber, matching kappa(Q)'s
-    // own color from phase 1) around every action except the red one
-    naiveCostEnd: 0.7, // 6: the obvious way costs ~2.58 bits -- the
-    // worked example's own highlight/circles fade out here, done having
-    // made their point, before the real (randomized, unspoiled) secret
-    // takes over for actual play
-    twoBitsEnd: 0.8, // 7: in fact, 2 bits suffice -- Alice's 2-dot
-    // signal fades in near the board
-    playArrive: 0.9, // 8: "Play, blind" -- the board stops following t
+    // used for it. The 6 button-points fade in here.
+    worldEnd: 0.26, // 3: "a world, here, is which button is correct
+    // *and* which is catastrophic" -- the setting it refers to already
+    // exists on screen and in the legend's own preceding card.
+    aliceViewEnd: 0.38, // 4: Alice's own view of one concrete world --
+    // one button green (correct), one red (catastrophic). Her own
+    // epistemic state, ground truth, never shown to Bob directly.
+    bobViewEnd: 0.5, // 5: Bob's own view of the *same* world -- green/
+    // red fade out, every button becomes a "?" (provably neither safe
+    // nor unsafe yet). The two views are deliberately never shown
+    // superimposed: which lens is active is unambiguous at all times.
+    verbatimEnd: 0.62, // 6: the most obvious strategy -- send Alice's
+    // own view outright. Five buttons flip to a checkmark at once (all
+    // provably safe once the one catastrophic button is pinned down);
+    // that one button turns red, since here -- and only here -- Bob's
+    // own certainty genuinely matches Alice's own.
+    naiveCostEnd: 0.72, // 7: a cheaper naive strategy -- name only the
+    // correct button. One checkmark; the pattern resets rather than
+    // building on chapter 6's own five, since this is a *different*,
+    // independent strategy, not a continuation.
+    twoBitsEnd: 0.82, // 8: in fact, 2 bits suffice -- three checkmarks
+    // at once, cheaper than either naive strategy above. Alice's 2-dot
+    // signal fades in near the board here too.
+    playArrive: 0.91, // 9: "Play, blind" -- the board stops following t
     // from here on; see the note above.
   };
 
@@ -324,18 +327,23 @@
   ];
 
   // ---- Phase 2's own legend copy -------------------------------------------
-  // Chapters 1-6, keyed to tGame (see tGameOf() below) the same way
-  // LEGEND_CHUNKS above is keyed to phase 1's own local t. A short story,
-  // told in the same order phase 1 itself introduced these ideas
-  // (concrete example first, then its kernel, then the weaker query it
-  // entails) -- not asserted all at once, and not skipping straight to
-  // "here are six points." Deliberately echoes phase 1's own vocabulary
-  // ("world," "kernel," "query") rather than introducing new terms for
-  // the same ideas -- this is the same mechanism, made concrete, not a
-  // new one. The concrete numbers here (6 actions, 2.58 bits, 2 bits) are
-  // exactly what phase 1's own top comment deferred ("no SI references
-  // or specific numbers... those belong to a worked example this piece
-  // hasn't built") -- this is that worked example, finally built.
+  // Chapters 1-8, keyed to tGame (see tGameOf() below) the same way
+  // LEGEND_CHUNKS above is keyed to phase 1's own local t. A short story
+  // about *two views of the same world* -- Alice's own (ground truth:
+  // which button is correct, which is catastrophic) and Bob's own (all
+  // he can ever do is ask, button by button, "can I prove this one is
+  // safe?" -- getting a checkmark, or staying at a question mark, never
+  // a proof of the opposite). Deliberately drops an earlier attempt to
+  // force a single named "kernel"/"query" object into this section
+  // (worked through directly, and abandoned, during build: any single
+  // fixed fact costs exactly log2(6) bits to state outright, by an
+  // unavoidable combinatorial symmetry of a 6-button universe -- no way
+  // to make one "cheaper" than another just by choosing which button
+  // it's about). The concrete numbers here (6 buttons, 30 worlds, 4.9/
+  // 2.58/2 bits) are exactly what phase 1's own top comment deferred ("no
+  // SI references or specific numbers... those belong to a worked
+  // example this piece hasn't built") -- this is that worked example,
+  // finally built.
   const GAME_LEGEND_CHUNKS = [
     {
       from: 0,
@@ -345,37 +353,44 @@
     },
     {
       from: CHG.storyEnd,
-      heading: "Six actions, two that matter",
+      heading: "Six buttons, two that matter",
       body:
-        "Picture six possible actions, shown here as six points. Exactly one is correct to take; exactly one would be catastrophic.",
+        "Picture six possible buttons, shown here as six points. Exactly one is correct to push; exactly one would be catastrophic.",
     },
     {
       from: CHG.setupEnd,
       heading: "What's a world, here?",
-      body: "A world, in this story, is which action is correct \u2014 and which one is catastrophic.",
+      body: "A world, in this story, is which button is correct \u2014 and which one is catastrophic.",
     },
     {
       from: CHG.worldEnd,
-      heading: "Alice's kernel",
+      heading: "Alice's own view",
       body:
-        "Here's an example world: say the green action is correct and the red one is catastrophic. Alice's kernel \u2014 the small circle \u2014 contains just the one correct action.",
+        "Here's one specific world. We'll mark the correct button green and the catastrophic one red \u2014 just for this example. Alice knows this completely: one fact out of 30 possible worlds.",
     },
     {
-      from: CHG.kernelEnd,
-      heading: "The query Alice must let Bob prove",
+      from: CHG.aliceViewEnd,
+      heading: "Bob's own view",
       body:
-        "Alice's task is to let Bob prove something weaker: that some specific action is safe, meaning not the catastrophic one \u2014 the bigger circle, containing every action except the red one.",
+        "Bob never sees green or red. All he can ever ask, button by button, is: can I prove this one is safe? Right now, before Alice says anything, the answer is no \u2014 for all six.",
     },
     {
-      from: CHG.queryEnd,
-      heading: "The obvious way",
-      body: "Told outright, naming the one correct action among six costs about 2.58 bits.",
+      from: CHG.bobViewEnd,
+      heading: "Send Alice's view, verbatim",
+      body:
+        "The most obvious approach: tell Bob everything Alice knows. That's one fact out of 30 \u2014 about 4.9 bits. Now every other button becomes provably safe too, not just the correct one.",
+    },
+    {
+      from: CHG.verbatimEnd,
+      heading: "A cheaper naive way",
+      body:
+        "Tell Bob only which button is correct, nothing about which is catastrophic. About 2.58 bits \u2014 less than telling him everything. But now only one button is provably safe; the rest are back to unknown.",
     },
     {
       from: CHG.naiveCostEnd,
       heading: "Just 2 bits, actually",
       body:
-        "In fact, this can be done with only 2 bits: a short, pre-agreed list of four candidate answers, one of which is always guaranteed to work. Alice broadcasts which one continuously, shown here as two small marks.",
+        "In fact, this takes only 2 bits: a short, pre-agreed list of four candidate groups, one of which is always entirely safe. Cheaper than either strategy above \u2014 and three buttons come back provably safe, not just one.",
     },
   ];
 
@@ -388,25 +403,26 @@
   const GAME_PHASE_TEXT = {
     blind: {
       heading: "Play, blind",
-      body: "Pick some points, then open them. Find the correct action; avoid the catastrophic one.",
+      body: "Pick some buttons, then press them all at once. Find the correct one; avoid the catastrophic one.",
     },
     cheatsheet: {
       heading: "The short list, made concrete",
       body:
-        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six points. (Bonus fact: these six points are a tetrahedron's six edges; each group is the three edges meeting at one corner.)",
+        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six buttons. (Bonus fact: these six buttons are a tetrahedron's six edges; each group is the three edges meeting at one corner.)",
     },
     hinted: {
       heading: "Play, with the code",
-      body: "Decode Alice's signal, open exactly that group's points, and win every time.",
+      body: "Decode Alice's signal, press exactly that group's buttons, and win every time.",
     },
     less: {
       heading: "This is what \u201CLess\u201D means",
-      body: "Two bits did it \u2014 less than the 2.58 bits naming the correct action outright would have taken.",
+      body:
+        "Two bits did it \u2014 less than either naive strategy: spelling out everything Alice knows (4.9 bits) or naming just the correct button (2.58 bits).",
     },
     more: {
       heading: "This is what \u201CMore\u201D means",
       body:
-        "Decoding the signal doesn't just hand you the one correct action \u2014 it hands you three guaranteed-safe actions, the correct one among them. Bob ends up able to safely act on more than the one action strictly required.",
+        "Decoding the signal doesn't just hand you the one correct button \u2014 it hands you three provably-safe buttons, the correct one among them. Bob ends up able to safely press more than the one button strictly required.",
     },
   };
 
@@ -875,48 +891,39 @@
     }
   })();
 
-  // ---- The worked example (chapters "Alice's kernel"/"The query...")
-  // -------------------------------------------------------------------
+  // ---- The worked example (the "Alice's own view"/"Bob's own view"
+  // chapters, and everything through "Just 2 bits, actually") ----------
   // A single, fixed, hand-picked illustrative world -- entirely separate
   // from the *real* secret (carDoor/zonkDoor, randomized below): this
-  // one exists purely to make "kernel"/"query" concrete before the real
-  // game starts, and fades out (see drawWorldExample's own alpha window)
+  // one exists purely to make the story concrete before the real game
+  // starts, and fades out (see drawWorldExample's own alpha windows)
   // well before the real, unspoiled secret is ever put in play.
+  //
+  // No kernel-as-a-shape here at all, deliberately -- an earlier version
+  // tried a small circle (Alice's kernel) and a bigger ellipse (the
+  // query) around subsets of these very buttons, which turned out to be
+  // internally inconsistent (worked through directly, and abandoned,
+  // during build): any single fixed fact about one button costs exactly
+  // log2(6) bits to state outright, by an unavoidable combinatorial
+  // symmetry, so there was no way to make the "query" genuinely cheaper
+  // than the "kernel" just by choosing which button it names. What
+  // actually varies, honestly, is Bob's own *epistemic* state per
+  // button -- provably safe (a checkmark) or not yet determined (a
+  // question mark, never a proof of the opposite) -- which is exactly
+  // what drawWorldExample() below renders, no enclosing shapes involved.
   const EXAMPLE_CORRECT_DOOR = 0;
   const EXAMPLE_CATASTROPHIC_DOOR = 2;
-  // Alice's kernel: a small circle around just the example's correct
-  // door, close enough to read as "just this one" but not so large it
-  // reaches any other door -- verified below, the same discipline as
-  // verifyGameGeometry() above.
-  const EXAMPLE_KERNEL_RADIUS = 0.11;
-  // The query: a bigger circle (an ellipse, off-center -- these 6 points
-  // aren't arranged with one clean circle separating any 5 of them from
-  // the 6th) around every door except the example's catastrophic one.
-  // cx/cy/rx/ry solved directly from DOOR_LOCAL's own 5 non-catastrophic
-  // points (bounding box + a fixed margin), not picked by eye.
-  const EXAMPLE_QUERY_ELLIPSE = { cx: 0, cy: -0.085, rx: 0.583, ry: 0.315 };
+  // The one pre-agreed group that fits this specific illustrative world
+  // -- derived from GROUPS itself via findGroup(), not hand-picked, so
+  // it's guaranteed to actually be one of the 4 real candidates instead
+  // of a bespoke illustration that only happens to look similar.
+  const EXAMPLE_GROUP = findGroup(EXAMPLE_CORRECT_DOOR, EXAMPLE_CATASTROPHIC_DOOR);
+  const EXAMPLE_GROUP_DOORS = GROUPS[EXAMPLE_GROUP].map((b, i) => (b ? i : -1)).filter((i) => i >= 0);
 
-  (function verifyWorldExampleGeometry() {
-    function distSq(a, b) {
-      const dx = a.x - b.x, dy = a.y - b.y;
-      return dx * dx + dy * dy;
-    }
-    const correct = DOOR_LOCAL[EXAMPLE_CORRECT_DOOR];
-    for (let i = 0; i < NUM_DOORS; i++) {
-      if (i === EXAMPLE_CORRECT_DOOR) continue;
-      if (Math.sqrt(distSq(correct, DOOR_LOCAL[i])) <= EXAMPLE_KERNEL_RADIUS) {
-        throw new Error("World example geometry check failed: kernel circle reaches door " + i);
-      }
-    }
-    for (let i = 0; i < NUM_DOORS; i++) {
-      const p = DOOR_LOCAL[i];
-      const dx = (p.x - EXAMPLE_QUERY_ELLIPSE.cx) / EXAMPLE_QUERY_ELLIPSE.rx;
-      const dy = (p.y - EXAMPLE_QUERY_ELLIPSE.cy) / EXAMPLE_QUERY_ELLIPSE.ry;
-      const inside = dx * dx + dy * dy <= 1;
-      const shouldBeInside = i !== EXAMPLE_CATASTROPHIC_DOOR;
-      if (inside !== shouldBeInside) {
-        throw new Error("World example geometry check failed: query ellipse membership wrong for door " + i);
-      }
+  (function verifyWorldExampleSetup() {
+    if (EXAMPLE_GROUP < 0) throw new Error("World example setup failed: no group fits the chosen example world");
+    if (!EXAMPLE_GROUP_DOORS.includes(EXAMPLE_CORRECT_DOOR) || EXAMPLE_GROUP_DOORS.includes(EXAMPLE_CATASTROPHIC_DOOR)) {
+      throw new Error("World example setup failed: chosen group doesn't actually fit the example world");
     }
   })();
 
@@ -2073,46 +2080,74 @@
   const DOOR_DOT_RADIUS_MULT = 0.075;
 
   // The worked example itself (see EXAMPLE_CORRECT_DOOR et al. above):
-  // one door highlighted green, one red, a small cyan circle around the
-  // green one (Alice's kernel), and a bigger amber circle around every
-  // door except the red one (the query) -- cyan/amber deliberately the
-  // *exact* colors kappa(S)/kappa(Q) use throughout phase 1 (SEED_GLOW,
-  // CHART_Q_COLOR), so this reads as the same two objects, not a new
-  // pair invented for this section. Fades in once "Alice's kernel" is
-  // introduced and fades back out once the concrete example has made
-  // its point (end of "The obvious way") -- gone well before the real,
-  // unspoiled secret is ever put in play.
+  // two views of the same world, in strict sequence, never superimposed.
+  // Alice's own view is ground truth -- one button green, one red.
+  // Bob's own view is a per-button epistemic mark: a checkmark where
+  // "this button is safe" is *provable* from what's been sent so far, a
+  // question mark everywhere else -- never a claim that a "?" button is
+  // actually unsafe, only that it isn't yet confirmed. Four successive
+  // beats replay the *same* world under four different strategies: send
+  // everything (5 checkmarks, the one true catastrophic button shown in
+  // red, since here Bob's certainty genuinely matches Alice's); name
+  // only the correct button (1 checkmark -- the pattern resets, a
+  // different independent strategy, not a continuation); and finally
+  // the real 2-bit code (3 checkmarks, cheaper than either). All of this
+  // fades out before CHG.playArrive, well clear of the real, unspoiled
+  // secret that takes over for actual play.
   function drawWorldExample(tGame) {
-    const exampleAlpha = captionAlpha(tGame, CHG.worldEnd, CHG.worldEnd + 0.02, CHG.naiveCostEnd, CHG.naiveCostEnd + 0.03);
-    if (exampleAlpha <= 0) return;
-
     const dotRadius = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT, 5);
-    const correctP = doorBoardPos(EXAMPLE_CORRECT_DOOR);
-    const catastrophicP = doorBoardPos(EXAMPLE_CATASTROPHIC_DOOR);
-    drawSquareMarker(correctP.x, correctP.y, dotRadius, CORRECT_COLOR, exampleAlpha, 2.6);
-    drawSquareMarker(catastrophicP.x, catastrophicP.y, dotRadius, CATASTROPHIC_COLOR, exampleAlpha, 2.6);
+    const markSize = Math.max(dotRadius * 1.7, 15);
 
-    const kernelAlpha = exampleAlpha * smoothstep(CHG.worldEnd, CHG.worldEnd + 0.04, tGame);
-    if (kernelAlpha > 0) {
-      drawOutlineDisc(correctP.x, correctP.y, EXAMPLE_KERNEL_RADIUS * gameUnit, SEED_GLOW, kernelAlpha, {
-        fillColor: SEED_GLOW,
-        fillAlphaMult: 0.08,
-        strokeAlphaMult: 0.85,
+    function drawMark(i, symbol, alpha) {
+      if (alpha <= 0) return;
+      const p = doorBoardPos(i);
+      drawLabel(symbol, p.x, p.y - markSize * 0.5, alpha, "center", {
+        absoluteSize: markSize,
+        color: BG,
+        glowColor: NEUTRAL,
       });
     }
 
-    const queryAlpha = exampleAlpha * smoothstep(CHG.kernelEnd, CHG.kernelEnd + 0.04, tGame);
-    if (queryAlpha > 0) {
-      const eb = gameToBoard(EXAMPLE_QUERY_ELLIPSE.cx, EXAMPLE_QUERY_ELLIPSE.cy);
-      drawOutlineEllipse(
-        eb.x,
-        eb.y,
-        EXAMPLE_QUERY_ELLIPSE.rx * gameUnit,
-        EXAMPLE_QUERY_ELLIPSE.ry * gameUnit,
-        CHART_Q_COLOR,
-        queryAlpha,
-        { fillColor: CHART_Q_COLOR, fillAlphaMult: 0.05, strokeAlphaMult: 0.75 }
-      );
+    // Ch.4: Alice's own view -- ground truth.
+    const aliceViewAlpha = captionAlpha(tGame, CHG.worldEnd, CHG.worldEnd + 0.02, CHG.aliceViewEnd, CHG.aliceViewEnd + 0.02);
+    if (aliceViewAlpha > 0) {
+      const cp = doorBoardPos(EXAMPLE_CORRECT_DOOR);
+      const zp = doorBoardPos(EXAMPLE_CATASTROPHIC_DOOR);
+      drawSquareMarker(cp.x, cp.y, dotRadius, CORRECT_COLOR, aliceViewAlpha, 2.6);
+      drawSquareMarker(zp.x, zp.y, dotRadius, CATASTROPHIC_COLOR, aliceViewAlpha, 2.6);
+    }
+
+    // Ch.5: Bob's own view -- nothing provable yet.
+    const bobViewAlpha = captionAlpha(tGame, CHG.aliceViewEnd, CHG.aliceViewEnd + 0.02, CHG.bobViewEnd, CHG.bobViewEnd + 0.02);
+    if (bobViewAlpha > 0) {
+      for (let i = 0; i < NUM_DOORS; i++) drawMark(i, "?", bobViewAlpha);
+    }
+
+    // Ch.6: send Alice's view verbatim -- 5 checkmarks, 1 red (the one
+    // moment Bob's own certainty genuinely equals Alice's).
+    const verbatimAlpha = captionAlpha(tGame, CHG.bobViewEnd, CHG.bobViewEnd + 0.02, CHG.verbatimEnd, CHG.verbatimEnd + 0.02);
+    if (verbatimAlpha > 0) {
+      for (let i = 0; i < NUM_DOORS; i++) {
+        if (i === EXAMPLE_CATASTROPHIC_DOOR) {
+          const zp = doorBoardPos(i);
+          drawSquareMarker(zp.x, zp.y, dotRadius, CATASTROPHIC_COLOR, verbatimAlpha, 2.6);
+        } else {
+          drawMark(i, "\u2713", verbatimAlpha);
+        }
+      }
+    }
+
+    // Ch.7: a cheaper naive way -- name only the correct button.
+    const naiveAlpha = captionAlpha(tGame, CHG.verbatimEnd, CHG.verbatimEnd + 0.02, CHG.naiveCostEnd, CHG.naiveCostEnd + 0.02);
+    if (naiveAlpha > 0) {
+      for (let i = 0; i < NUM_DOORS; i++) drawMark(i, i === EXAMPLE_CORRECT_DOOR ? "\u2713" : "?", naiveAlpha);
+    }
+
+    // Ch.8: just 2 bits -- the whole matching group comes back safe at
+    // once. Fades out before the real secret takes over (CHG.playArrive).
+    const twoBitsAlpha = captionAlpha(tGame, CHG.naiveCostEnd, CHG.naiveCostEnd + 0.02, CHG.playArrive - 0.03, CHG.playArrive - 0.01);
+    if (twoBitsAlpha > 0) {
+      for (let i = 0; i < NUM_DOORS; i++) drawMark(i, EXAMPLE_GROUP_DOORS.includes(i) ? "\u2713" : "?", twoBitsAlpha);
     }
   }
 
