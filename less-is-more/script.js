@@ -166,22 +166,39 @@
 
   // Phase 2's own chapter boundaries, as a local t running 0->1 over the
   // *remaining* (1 - LEGACY_END) share of outer t -- see tGameOf() below.
-  // Chapters 1-3 (the storyboard's own numbering; phase 1 already used
-  // 0-10) are simple scroll-driven fades, same idiom as phase 1. Chapter
-  // 4 onward ("Play, blind") is deliberately *not* t-driven past
-  // `playArrive`: Round 1 -> cheat sheet -> Round 2 are choice-dependent,
-  // not a fixed sequence a scrollbar could represent, so the board and
-  // the legend both switch from following t to following real game state
-  // (clicks) at that point. Scrolling further still "works" (nothing
-  // breaks), it just has nothing left to drive.
+  // Chapters 1-6 (the storyboard's own numbering; phase 1 already used
+  // 0-10) are simple scroll-driven fades, same idiom as phase 1: a short,
+  // plain-prose story (doors, a prize, a dud) that walks through the
+  // actual numbers -- telling Alice's whole knowledge outright (~4.9
+  // bits), then the realization that Bob doesn't need all of it (~2.58
+  // bits), then the real answer (2 bits) -- entirely in the legend card,
+  // with no new canvas machinery at all: several earlier attempts to
+  // *visualize* this same progression directly on the board (circles,
+  // graph edges, checkmark/question-mark recoloring, a full comparison
+  // table) each surfaced their own real problems in turn; plain prose,
+  // read alongside the same six unchanging points, turned out to need
+  // none of that. Chapter 7 onward ("Play, blind") is deliberately *not*
+  // t-driven past `playArrive`: Round 1 -> cheat sheet -> Round 2 are
+  // choice-dependent, not a fixed sequence a scrollbar could represent,
+  // so the board and the legend both switch from following t to
+  // following real game state (clicks) at that point. Scrolling further
+  // still "works" (nothing breaks), it just has nothing left to drive.
   const CHG = {
-    transitionEnd: 0.12, // 1: recap card; phase 1's own diagram/tile/chart
+    transitionEnd: 0.08, // 1: recap card; phase 1's own diagram/tile/chart
     // fade out together, one shot, no fade back in (captionAlpha with no
     // inStart..inEnd half -- the same one-shot pattern candidateEnd's own
     // sentence fade-outs already use elsewhere in this file).
-    boardEnd: 0.34, // 2: the 6 door-points fade in at their fixed positions
-    signalEnd: 0.56, // 3: Alice's 2-dot signal fades in near the board
-    playArrive: 0.66, // 4: "Play, blind" -- the board stops following t
+    doorsEnd: 0.2, // 2: "six doors, two that matter" -- prize, dud; the
+    // 6 door-points fade in at their fixed positions
+    scoopEnd: 0.32, // 3: Alice has the scoop, but a limited channel
+    obviousEnd: 0.44, // 4: the most obvious option -- tell Bob
+    // everything outright, ~4.9 bits
+    enoughEnd: 0.58, // 5: the realization -- Bob only needs a safe set
+    // that includes the prize; naming the prize door alone already
+    // works, ~2.58 bits, but there's something better still
+    signalEnd: 0.72, // 6: just 2 bits, actually -- Alice's 2-dot signal
+    // fades in near the board
+    playArrive: 0.85, // 7: "Play, blind" -- the board stops following t
     // from here on; see the note above.
   };
 
@@ -296,29 +313,51 @@
   ];
 
   // ---- Phase 2's own legend copy -------------------------------------------
-  // Chapters 1-3, keyed to tGame (see tGameOf() below) the same way
-  // LEGEND_CHUNKS above is keyed to phase 1's own local t. Deliberately
-  // echoes phase 1's own vocabulary ("kernel," "short list") rather than
-  // introducing new terms for the same ideas -- this is the same
-  // mechanism, made concrete, not a new one.
+  // Chapters 1-6, keyed to tGame (see tGameOf() below) the same way
+  // LEGEND_CHUNKS above is keyed to phase 1's own local t. A short,
+  // plain-prose story -- doors, a prize, a dud -- that walks through the
+  // actual numbers (4.9 bits, then 2.58, then 2) instead of asserting
+  // "2 bits" out of nowhere. Deliberately no new canvas machinery for
+  // any of it: the same six unchanging points sit there the whole time;
+  // only the legend text changes. Echoes phase 1's own vocabulary
+  // ("short list") once the real mechanism is reached, rather than
+  // introducing new terms for the same idea.
   const GAME_LEGEND_CHUNKS = [
     {
       from: 0,
       heading: "Here's what this looks like, concretely",
       body:
-        "Suppose there are just six possible actions to choose from. Exactly one is correct, and exactly one is catastrophic. A target query, in a setting like this one, just means picking a demonstrably safe action.",
+        "Alice needs to get you safely to a prize \u2014 but she can't just show you everything she knows. Here's the same idea as before, played out as a simple game.",
     },
     {
       from: CHG.transitionEnd,
-      heading: "Six actions, two that matter",
+      heading: "Six doors, two that matter",
       body:
-        "Each of these six points is one of the six possible actions. Exactly one is safe, one is catastrophic \u2014 Alice knows which, you don't, yet.",
+        "Behind one door is a prize; behind another, a dud. You'll walk away with the prize only if you open the door that has it \u2014 and never open the one with the dud.",
     },
     {
-      from: CHG.boardEnd,
+      from: CHG.doorsEnd,
+      heading: "Alice has the scoop",
+      body:
+        "Alice knows exactly which door hides the prize, and which hides the dud. The catch: she only has a short message she can send back to you.",
+    },
+    {
+      from: CHG.scoopEnd,
+      heading: "The most obvious option",
+      body:
+        "Alice could just tell you everything she knows: which door has the prize, and which has the dud. That's one specific fact out of 30 possibilities \u2014 about 4.9 bits.",
+    },
+    {
+      from: CHG.obviousEnd,
+      heading: "But you don't need all that",
+      body:
+        "All you actually need is a set of doors that's safe to open \u2014 no dud among them \u2014 guaranteed to include the prize. Just naming the prize door alone already does that: one of six, about 2.58 bits. But there's something even better.",
+    },
+    {
+      from: CHG.enoughEnd,
       heading: "Alice's signal",
       body:
-        "Alice is continuously broadcasting a 2-bit signal, shown here as two small marks. It means nothing on its own \u2014 the same way a short pre-agreed list was needed before, it takes a shared list to decode this into anything useful.",
+        "Just 2 bits, in fact. Alice is continuously broadcasting a 2-bit signal, shown here as two small marks \u2014 though it means nothing on its own until you also have a shared list to decode it.",
     },
   ];
 
@@ -327,16 +366,16 @@
   const GAME_PHASE_TEXT = {
     blind: {
       heading: "Play, blind",
-      body: "Pick some points, then open them. Find the correct action; avoid the catastrophic one.",
+      body: "Pick some doors, then open them. Find the one with the prize; avoid the one with the dud.",
     },
     cheatsheet: {
       heading: "The short list, made concrete",
       body:
-        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six points. (Bonus fact: these six points are a tetrahedron's six edges; each group is the three edges meeting at one corner.)",
+        "This is the same short list from before, made concrete: four pre-agreed candidate kernels, each a subset of these six doors. (Bonus fact: these six doors are a tetrahedron's six edges; each group is the three edges meeting at one corner.)",
     },
     hinted: {
       heading: "Play, with the code",
-      body: "Decode Alice's signal, open exactly that group's points, and win every time.",
+      body: "Decode Alice's signal, open exactly that group's doors, and win every time.",
     },
   };
 
@@ -2074,8 +2113,8 @@
   }
 
   function drawGameScene(tGame) {
-    const boardAppear = smoothstep(CHG.transitionEnd, CHG.boardEnd, tGame);
-    const signalAppear = smoothstep(CHG.boardEnd, CHG.signalEnd, tGame);
+    const boardAppear = smoothstep(CHG.transitionEnd, CHG.doorsEnd, tGame);
+    const signalAppear = smoothstep(CHG.enoughEnd, CHG.signalEnd, tGame);
     const playAppear = smoothstep(CHG.signalEnd, CHG.playArrive, tGame);
 
     drawGameBoard(boardAppear);
