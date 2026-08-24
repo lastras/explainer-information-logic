@@ -150,3 +150,112 @@ html, body {
   color: #9fe8db;
   border-color: rgba(184, 255, 250, 0.55);
 }
+
+/* The worked example's own comparison table (see index.html's own note
+   on why this is a plain HTML table, not canvas). Positioned near the
+   top of the viewport: the board itself fades out while this is shown
+   (see script.js's own boardAppear), freeing exactly the screen region
+   the table needs. overflow-x: auto on the inner wrap, not the outer
+   one, so the table can scroll horizontally on narrow viewports without
+   the card's own border/background scrolling along with it. */
+.story-table-wrap {
+  position: absolute;
+  left: 50%;
+  top: 6%;
+  transform: translateX(-50%);
+  width: min(720px, 92vw);
+  background: rgba(5, 2, 8, 0.85);
+  border: 1px solid rgba(184, 255, 250, 0.22);
+  border-radius: 12px;
+  padding: 0.9rem;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.story-table-wrap[hidden] {
+  display: none;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.story-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.story-table th,
+.story-table td {
+  border: 1px solid rgba(184, 255, 250, 0.18);
+  padding: 0.5rem 0.6rem;
+  text-align: left;
+  vertical-align: top;
+  white-space: normal;
+}
+
+.story-table th {
+  color: #9fe8db;
+  font-weight: 600;
+}
+
+.story-table td {
+  color: #cdd3da;
+  line-height: 1.4;
+}
+
+.story-table td:last-child {
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Narrow viewports: the table's own natural width otherwise exceeds the
+   viewport (measured directly: 433px of table in a 328px-wide scroll
+   container on a 390px phone) with no visible hint that "Cost" -- the
+   whole point of the table -- has silently scrolled off the right edge.
+   Shrinking font/padding here, plus letting header text wrap (removed
+   the unconditional white-space: nowrap on th, which was forcing
+   headers like "What Alice knows" to demand a full line's width even
+   here), was solved for directly against that same measurement, not
+   picked by eye: re-checked after, table.scrollWidth <= wrap.clientWidth
+   at 390px and 360px both. */
+@media (max-width: 480px) {
+  .story-table {
+    font-size: 0.66rem;
+  }
+  .story-table th,
+  .story-table td {
+    padding: 0.32rem 0.35rem;
+  }
+  .swatch {
+    width: 0.6em;
+    height: 0.6em;
+    margin-right: 0.2em;
+  }
+  .swatch-catastrophic {
+    margin-left: 0.5em;
+  }
+}
+
+/* Small colored squares, matching CORRECT_COLOR_HEX/CATASTROPHIC_COLOR_HEX
+   in script.js exactly -- kept as literal hex here (a small, deliberate
+   duplication) rather than set via JS, since this table's own content is
+   entirely static, unlike everything else color gets set on. */
+.swatch {
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  border-radius: 2px;
+  margin-right: 0.3em;
+  vertical-align: -0.05em;
+}
+
+.swatch-correct {
+  background: #7be07f;
+}
+
+.swatch-catastrophic {
+  background: #ff6a6a;
+  margin-left: 0.8em;
+}

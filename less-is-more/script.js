@@ -166,52 +166,47 @@
 
   // Phase 2's own chapter boundaries, as a local t running 0->1 over the
   // *remaining* (1 - LEGACY_END) share of outer t -- see tGameOf() below.
-  // Chapters 1-7 (the storyboard's own numbering; phase 1 already used
-  // 0-10) are simple scroll-driven fades, same idiom as phase 1: a short
-  // story formalizing "world"/"kernel"/"query" by a *concrete* example
-  // (chapters 3-5, with an actual example world highlighted green/red on
-  // the board -- see EXAMPLE_CORRECT_DOOR below) -- the same way phase
-  // 1's own chapters 0-1 formalized them via Alice's and Bob's concrete
-  // sentences, never in the abstract alone -- followed by the naive
-  // cost, then the actual 2-bit answer (chapters 6-7). Chapter 8 onward
-  // ("Play, blind") is deliberately *not* t-driven past `playArrive`:
-  // Round 1 -> cheat sheet -> Round 2 -> Less/More are choice-dependent,
-  // not a fixed sequence a scrollbar could represent, so the board and
-  // the legend both switch from following t to following real game
-  // state (clicks) at that point. Scrolling further still "works"
-  // (nothing breaks), it just has nothing left to drive.
+  // Chapters 1-5 (the storyboard's own numbering; phase 1 already used
+  // 0-10) are simple scroll-driven fades, same idiom as phase 1. Chapter
+  // 6 onward ("Play, blind") is deliberately *not* t-driven past
+  // `playArrive`: Round 1 -> cheat sheet -> Round 2 -> Less/More are
+  // choice-dependent, not a fixed sequence a scrollbar could represent,
+  // so the board and the legend both switch from following t to
+  // following real game state (clicks) at that point. Scrolling further
+  // still "works" (nothing breaks), it just has nothing left to drive.
+  //
+  // An earlier version of chapters 3-5 tried to formalize "kernel"/
+  // "query" directly on the board itself -- one example world
+  // highlighted green/red, then the same six points recolored across
+  // several more cards into checkmarks and question marks standing for
+  // different things each time. Reported directly as confusing (color
+  // alone was being asked to keep too many different meanings apart),
+  // and replaced with the comparison table in index.html (see its own
+  // note there): the board simply steps aside (see boardAppear's own
+  // dip, in drawGameScene below) while the table carries the whole
+  // comparison, then reappears once the table's own job is done.
   const CHG = {
-    storyEnd: 0.06, // 1: the story's own opening beat; phase 1's own
+    storyEnd: 0.08, // 1: the story's own opening beat; phase 1's own
     // diagram/tile/chart fade out together here, one shot, no fade back
     // in (captionAlpha with no inStart..inEnd half -- the same one-shot
     // pattern candidateEnd's own sentence fade-outs already use
     // elsewhere in this file).
-    setupEnd: 0.16, // 2: "six buttons, one correct, one catastrophic" --
-    // the setting itself, established *before* the word "world" is
-    // used for it. The 6 button-points fade in here.
-    worldEnd: 0.26, // 3: "a world, here, is which button is correct
+    setupEnd: 0.2, // 2: "six buttons, one correct, one catastrophic" --
+    // the setting itself, established *before* the word "world" is used
+    // for it. The 6 button-points fade in here.
+    worldEnd: 0.32, // 3: "a world, here, is which button is correct
     // *and* which is catastrophic" -- the setting it refers to already
-    // exists on screen and in the legend's own preceding card.
-    aliceViewEnd: 0.38, // 4: Alice's own view of one concrete world --
-    // one button green (correct), one red (catastrophic). Her own
-    // epistemic state, ground truth, never shown to Bob directly.
-    bobViewEnd: 0.5, // 5: Bob's own view of the *same* world -- green/
-    // red fade out, every button becomes a "?" (provably neither safe
-    // nor unsafe yet). The two views are deliberately never shown
-    // superimposed: which lens is active is unambiguous at all times.
-    verbatimEnd: 0.62, // 6: the most obvious strategy -- send Alice's
-    // own view outright. Five buttons flip to a checkmark at once (all
-    // provably safe once the one catastrophic button is pinned down);
-    // that one button turns red, since here -- and only here -- Bob's
-    // own certainty genuinely matches Alice's own.
-    naiveCostEnd: 0.72, // 7: a cheaper naive strategy -- name only the
-    // correct button. One checkmark; the pattern resets rather than
-    // building on chapter 6's own five, since this is a *different*,
-    // independent strategy, not a continuation.
-    twoBitsEnd: 0.82, // 8: in fact, 2 bits suffice -- three checkmarks
-    // at once, cheaper than either naive strategy above. Alice's 2-dot
-    // signal fades in near the board here too.
-    playArrive: 0.91, // 9: "Play, blind" -- the board stops following t
+    // exists on screen and in the legend's own preceding card. The
+    // board starts fading out right after this, making room for...
+    tableEnd: 0.68, // 4: ...the comparison table itself, shown whole (no
+    // row-by-row reveal -- trying to sequence this the same way the
+    // board's own cards were sequenced is exactly what caused the
+    // original confusion). Given the most reading (four rows, four
+    // columns), this chapter gets the widest window of any of them.
+    twoBitsEnd: 0.8, // 5: the table fades back out; the board and
+    // Alice's 2-dot signal fade back in, ready for the real, unspoiled
+    // secret.
+    playArrive: 0.9, // 6: "Play, blind" -- the board stops following t
     // from here on; see the note above.
   };
 
@@ -327,23 +322,19 @@
   ];
 
   // ---- Phase 2's own legend copy -------------------------------------------
-  // Chapters 1-8, keyed to tGame (see tGameOf() below) the same way
-  // LEGEND_CHUNKS above is keyed to phase 1's own local t. A short story
-  // about *two views of the same world* -- Alice's own (ground truth:
-  // which button is correct, which is catastrophic) and Bob's own (all
-  // he can ever do is ask, button by button, "can I prove this one is
-  // safe?" -- getting a checkmark, or staying at a question mark, never
-  // a proof of the opposite). Deliberately drops an earlier attempt to
-  // force a single named "kernel"/"query" object into this section
-  // (worked through directly, and abandoned, during build: any single
-  // fixed fact costs exactly log2(6) bits to state outright, by an
-  // unavoidable combinatorial symmetry of a 6-button universe -- no way
-  // to make one "cheaper" than another just by choosing which button
-  // it's about). The concrete numbers here (6 buttons, 30 worlds, 4.9/
-  // 2.58/2 bits) are exactly what phase 1's own top comment deferred ("no
-  // SI references or specific numbers... those belong to a worked
-  // example this piece hasn't built") -- this is that worked example,
-  // finally built.
+  // Chapters 1-5, keyed to tGame (see tGameOf() below) the same way
+  // LEGEND_CHUNKS above is keyed to phase 1's own local t. The concrete
+  // numbers here (6 buttons, 30 worlds, 4.9/2.58/2 bits) are exactly what
+  // phase 1's own top comment deferred ("no SI references or specific
+  // numbers... those belong to a worked example this piece hasn't
+  // built") -- this is that worked example, finally built. The
+  // comparison itself -- what Alice knows, what that leaves Bob able to
+  // deduce, and the cost, across several different strategies -- lives
+  // in the actual comparison table (index.html's own #storyTableWrap),
+  // not on the canvas; the legend card here only introduces it. See
+  // CHG's own note above for why (an earlier, canvas-only version tried
+  // to recolor the same six board points across several cards and
+  // ended up asking color alone to keep too many meanings apart).
   const GAME_LEGEND_CHUNKS = [
     {
       from: 0,
@@ -364,33 +355,15 @@
     },
     {
       from: CHG.worldEnd,
-      heading: "Alice's own view",
+      heading: "What Alice knows, what Bob can deduce",
       body:
-        "Here's one specific world. We'll mark the correct button green and the catastrophic one red \u2014 just for this example. Alice knows this completely: one fact out of 30 possible worlds.",
+        "Alice always knows the complete world. What varies is what she tells Bob, and what that leaves him able to safely deduce \u2014 compared here, side by side, across a few different strategies.",
     },
     {
-      from: CHG.aliceViewEnd,
-      heading: "Bob's own view",
-      body:
-        "Bob never sees green or red. All he can ever ask, button by button, is: can I prove this one is safe? Right now, before Alice says anything, the answer is no \u2014 for all six.",
-    },
-    {
-      from: CHG.bobViewEnd,
-      heading: "Send Alice's view, verbatim",
-      body:
-        "The most obvious approach: tell Bob everything Alice knows. That's one fact out of 30 \u2014 about 4.9 bits. Now every other button becomes provably safe too, not just the correct one.",
-    },
-    {
-      from: CHG.verbatimEnd,
-      heading: "A cheaper naive way",
-      body:
-        "Tell Bob only which button is correct, nothing about which is catastrophic. About 2.58 bits \u2014 less than telling him everything. But now only one button is provably safe; the rest are back to unknown.",
-    },
-    {
-      from: CHG.naiveCostEnd,
+      from: CHG.tableEnd,
       heading: "Just 2 bits, actually",
       body:
-        "In fact, this takes only 2 bits: a short, pre-agreed list of four candidate groups, one of which is always entirely safe. Cheaper than either strategy above \u2014 and three buttons come back provably safe, not just one.",
+        "That last row is the one actually used: a short, pre-agreed list of four candidate groups, one of which is always entirely safe. Alice broadcasts which one fits, continuously, shown here as two small marks.",
     },
   ];
 
@@ -891,41 +864,10 @@
     }
   })();
 
-  // ---- The worked example (the "Alice's own view"/"Bob's own view"
-  // chapters, and everything through "Just 2 bits, actually") ----------
-  // A single, fixed, hand-picked illustrative world -- entirely separate
-  // from the *real* secret (carDoor/zonkDoor, randomized below): this
-  // one exists purely to make the story concrete before the real game
-  // starts, and fades out (see drawWorldExample's own alpha windows)
-  // well before the real, unspoiled secret is ever put in play.
-  //
-  // No kernel-as-a-shape here at all, deliberately -- an earlier version
-  // tried a small circle (Alice's kernel) and a bigger ellipse (the
-  // query) around subsets of these very buttons, which turned out to be
-  // internally inconsistent (worked through directly, and abandoned,
-  // during build): any single fixed fact about one button costs exactly
-  // log2(6) bits to state outright, by an unavoidable combinatorial
-  // symmetry, so there was no way to make the "query" genuinely cheaper
-  // than the "kernel" just by choosing which button it names. What
-  // actually varies, honestly, is Bob's own *epistemic* state per
-  // button -- provably safe (a checkmark) or not yet determined (a
-  // question mark, never a proof of the opposite) -- which is exactly
-  // what drawWorldExample() below renders, no enclosing shapes involved.
-  const EXAMPLE_CORRECT_DOOR = 0;
-  const EXAMPLE_CATASTROPHIC_DOOR = 2;
-  // The one pre-agreed group that fits this specific illustrative world
-  // -- derived from GROUPS itself via findGroup(), not hand-picked, so
-  // it's guaranteed to actually be one of the 4 real candidates instead
-  // of a bespoke illustration that only happens to look similar.
-  const EXAMPLE_GROUP = findGroup(EXAMPLE_CORRECT_DOOR, EXAMPLE_CATASTROPHIC_DOOR);
-  const EXAMPLE_GROUP_DOORS = GROUPS[EXAMPLE_GROUP].map((b, i) => (b ? i : -1)).filter((i) => i >= 0);
-
-  (function verifyWorldExampleSetup() {
-    if (EXAMPLE_GROUP < 0) throw new Error("World example setup failed: no group fits the chosen example world");
-    if (!EXAMPLE_GROUP_DOORS.includes(EXAMPLE_CORRECT_DOOR) || EXAMPLE_GROUP_DOORS.includes(EXAMPLE_CATASTROPHIC_DOOR)) {
-      throw new Error("World example setup failed: chosen group doesn't actually fit the example world");
-    }
-  })();
+  // The worked example that used to live here (an illustrative world,
+  // highlighted directly on the board) is now the comparison table in
+  // index.html (#storyTableWrap) instead -- see CHG's own note above for
+  // why. There's nothing left for the canvas itself to set up for it.
 
   // ---- Game state (never rendered directly -- only through the board's
   // own selected/opened point styling and the reveal labels) -----------
@@ -1077,6 +1019,7 @@
   const legacyCtx = legacyCanvas.getContext("2d");
   const legendHeadingEl = document.getElementById("legendHeading");
   const legendBodyEl = document.getElementById("legendBody");
+  const storyTableWrapEl = document.getElementById("storyTableWrap");
   const gameControlsEl = document.getElementById("gameControls");
   const gameOpenBtn = document.getElementById("gameOpenBtn");
   const gameRevealBtn = document.getElementById("gameRevealBtn");
@@ -2079,77 +2022,11 @@
 
   const DOOR_DOT_RADIUS_MULT = 0.075;
 
-  // The worked example itself (see EXAMPLE_CORRECT_DOOR et al. above):
-  // two views of the same world, in strict sequence, never superimposed.
-  // Alice's own view is ground truth -- one button green, one red.
-  // Bob's own view is a per-button epistemic mark: a checkmark where
-  // "this button is safe" is *provable* from what's been sent so far, a
-  // question mark everywhere else -- never a claim that a "?" button is
-  // actually unsafe, only that it isn't yet confirmed. Four successive
-  // beats replay the *same* world under four different strategies: send
-  // everything (5 checkmarks, the one true catastrophic button shown in
-  // red, since here Bob's certainty genuinely matches Alice's); name
-  // only the correct button (1 checkmark -- the pattern resets, a
-  // different independent strategy, not a continuation); and finally
-  // the real 2-bit code (3 checkmarks, cheaper than either). All of this
-  // fades out before CHG.playArrive, well clear of the real, unspoiled
-  // secret that takes over for actual play.
-  function drawWorldExample(tGame) {
-    const dotRadius = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT, 5);
-    const markSize = Math.max(dotRadius * 1.7, 15);
-
-    function drawMark(i, symbol, alpha) {
-      if (alpha <= 0) return;
-      const p = doorBoardPos(i);
-      drawLabel(symbol, p.x, p.y - markSize * 0.5, alpha, "center", {
-        absoluteSize: markSize,
-        color: BG,
-        glowColor: NEUTRAL,
-      });
-    }
-
-    // Ch.4: Alice's own view -- ground truth.
-    const aliceViewAlpha = captionAlpha(tGame, CHG.worldEnd, CHG.worldEnd + 0.02, CHG.aliceViewEnd, CHG.aliceViewEnd + 0.02);
-    if (aliceViewAlpha > 0) {
-      const cp = doorBoardPos(EXAMPLE_CORRECT_DOOR);
-      const zp = doorBoardPos(EXAMPLE_CATASTROPHIC_DOOR);
-      drawSquareMarker(cp.x, cp.y, dotRadius, CORRECT_COLOR, aliceViewAlpha, 2.6);
-      drawSquareMarker(zp.x, zp.y, dotRadius, CATASTROPHIC_COLOR, aliceViewAlpha, 2.6);
-    }
-
-    // Ch.5: Bob's own view -- nothing provable yet.
-    const bobViewAlpha = captionAlpha(tGame, CHG.aliceViewEnd, CHG.aliceViewEnd + 0.02, CHG.bobViewEnd, CHG.bobViewEnd + 0.02);
-    if (bobViewAlpha > 0) {
-      for (let i = 0; i < NUM_DOORS; i++) drawMark(i, "?", bobViewAlpha);
-    }
-
-    // Ch.6: send Alice's view verbatim -- 5 checkmarks, 1 red (the one
-    // moment Bob's own certainty genuinely equals Alice's).
-    const verbatimAlpha = captionAlpha(tGame, CHG.bobViewEnd, CHG.bobViewEnd + 0.02, CHG.verbatimEnd, CHG.verbatimEnd + 0.02);
-    if (verbatimAlpha > 0) {
-      for (let i = 0; i < NUM_DOORS; i++) {
-        if (i === EXAMPLE_CATASTROPHIC_DOOR) {
-          const zp = doorBoardPos(i);
-          drawSquareMarker(zp.x, zp.y, dotRadius, CATASTROPHIC_COLOR, verbatimAlpha, 2.6);
-        } else {
-          drawMark(i, "\u2713", verbatimAlpha);
-        }
-      }
-    }
-
-    // Ch.7: a cheaper naive way -- name only the correct button.
-    const naiveAlpha = captionAlpha(tGame, CHG.verbatimEnd, CHG.verbatimEnd + 0.02, CHG.naiveCostEnd, CHG.naiveCostEnd + 0.02);
-    if (naiveAlpha > 0) {
-      for (let i = 0; i < NUM_DOORS; i++) drawMark(i, i === EXAMPLE_CORRECT_DOOR ? "\u2713" : "?", naiveAlpha);
-    }
-
-    // Ch.8: just 2 bits -- the whole matching group comes back safe at
-    // once. Fades out before the real secret takes over (CHG.playArrive).
-    const twoBitsAlpha = captionAlpha(tGame, CHG.naiveCostEnd, CHG.naiveCostEnd + 0.02, CHG.playArrive - 0.03, CHG.playArrive - 0.01);
-    if (twoBitsAlpha > 0) {
-      for (let i = 0; i < NUM_DOORS; i++) drawMark(i, EXAMPLE_GROUP_DOORS.includes(i) ? "\u2713" : "?", twoBitsAlpha);
-    }
-  }
+  // The worked example that used to render directly on the board (an
+  // illustrative world, then several rounds of recoloring the same six
+  // points) is now the comparison table in index.html (#storyTableWrap)
+  // -- see CHG's own note above. syncStoryTable() below shows/hides it;
+  // drawGameScene's own boardAppear dips out of the way while it's up.
 
   function drawGameBoard(alpha) {
     if (alpha <= 0) return;
@@ -2282,13 +2159,28 @@
     }
   }
 
-  function drawGameScene(tGame) {
-    const boardAppear = smoothstep(CHG.storyEnd, CHG.setupEnd, tGame);
-    const signalAppear = smoothstep(CHG.naiveCostEnd, CHG.twoBitsEnd, tGame);
+  // Shows/hides the comparison table (see CHG's own note above) in step
+  // with tableAlpha. A plain opacity set, no CSS transition -- exactly
+  // like every canvas alpha elsewhere in this piece, this needs to be a
+  // pure function of t, static the instant scrolling stops, not an
+  // independently-animating DOM transition.
+  function syncStoryTable(tableAlpha) {
+    storyTableWrapEl.hidden = tableAlpha <= 0;
+    storyTableWrapEl.style.opacity = tableAlpha;
+  }
+
+  function drawGameScene(tGame, tableAlpha) {
+    // The table (index.html's own #storyTableWrap) takes over the
+    // screen region the board normally occupies -- the board dips out
+    // of the way while it's up, rather than the two ever sharing the
+    // same space. See CHG's own note above for why this replaced the
+    // earlier "recolor the same six points across several cards" idea.
+
+    const boardAppear = smoothstep(CHG.storyEnd, CHG.setupEnd, tGame) * (1 - tableAlpha);
+    const signalAppear = smoothstep(CHG.tableEnd, CHG.twoBitsEnd, tGame);
     const playAppear = smoothstep(CHG.twoBitsEnd, CHG.playArrive, tGame);
 
     drawGameBoard(boardAppear);
-    drawWorldExample(tGame);
     if (signalAppear > 0) {
       const sp = aliceSignalPos();
       drawSignalIndicator(sp.x, sp.y, hintedGroup, Math.max(gameUnit * 0.055, 3), gameUnit * 0.32, signalAppear, NEUTRAL);
@@ -2345,7 +2237,22 @@
       ctx.restore();
     }
 
-    if (tOuter >= LEGACY_END) drawGameScene(tGame);
+    // Computed -- and the DOM table synced -- unconditionally, even for
+    // tOuter < LEGACY_END, so #storyTableWrap's own state is a pure
+    // function of tOuter everywhere, not left stale from whatever it was
+    // last set to while phase 2 was active. Otherwise, scrolling back
+    // into phase 1 leaves the *canvas* correctly showing phase 1 again,
+    // but the table's own DOM attributes quietly keep whatever value
+    // they last held -- invisible in practice (the table is already
+    // `hidden` well before LEGACY_END on any normal scroll), but not a
+    // true function of t, and it broke this file's own forward/backward
+    // scrub check (which, correctly, compares DOM state too, not just
+    // the canvas) the first time it was tried.
+    const tableAlpha =
+      tOuter >= LEGACY_END ? captionAlpha(tGame, CHG.worldEnd, CHG.worldEnd + 0.02, CHG.tableEnd, CHG.tableEnd + 0.02) : 0;
+    syncStoryTable(tableAlpha);
+
+    if (tOuter >= LEGACY_END) drawGameScene(tGame, tableAlpha);
   }
 
   // ---- Top-level render -------------------------------------------------------
