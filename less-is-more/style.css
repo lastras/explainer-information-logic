@@ -14,21 +14,24 @@ html, body {
 
 /* The scrub range. Height is large relative to the viewport so that a full
    pass through all chapters corresponds to a comfortable amount of scroll
-   travel. 1000vh, not the original 600vh: phase 2 ("Guess the Door") added
+   travel. 1200vh, not the original 600vh: phase 2 ("Guess the Door") added
    a second half past the original ending, and LEGACY_END in script.js
-   (5/9) was solved so that the *original* content still gets exactly the
+   (5/11) was solved so that the *original* content still gets exactly the
    600vh-equivalent scroll range it was tuned and verified against
-   (1000vh - 100vh viewport) * 5/9 = 500vh, matching the old track's own
+   (1200vh - 100vh viewport) * 5/11 = 500vh, matching the old track's own
    effective (600vh - 100vh) scroll range exactly -- see script.js's own
    note on LEGACY_END for why this matters (every hand-tuned margin and
    boost-window offset in phase 1 assumes this same scroll-pixel budget;
    changing it without also rescaling every one of those offsets would
-   silently speed up or slow down all of phase 1's own pacing). The piece
-   now ends on a *new* resting frame -- the game, playable with the code
-   -- past that point. */
+   silently speed up or slow down all of phase 1's own pacing). Grown once
+   already (from 1000vh) specifically to widen the gap between "Play,
+   blind" arriving and the geometric reveal starting, after the first,
+   narrower gap turned out easy to scroll past accidentally -- see
+   CHG.tetraStart's own note. The piece now ends on a *new* resting frame
+   -- the tetrahedron reveal's own closing card -- past that point. */
 .scroll-track {
   position: relative;
-  height: 1000vh;
+  height: 1200vh;
   background: var(--bg);
 }
 

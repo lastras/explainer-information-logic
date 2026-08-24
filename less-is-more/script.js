@@ -55,16 +55,18 @@
 // kernel" -- a *set* of possibilities. A door is not that: it's a single
 // *element* of the 6-item universe. So doors are drawn as plain points,
 // never as their own discs, and a kernel here -- a candidate group, or
-// the player's own live selection -- is drawn as the complete graph on
-// its member points (every pair joined by a line, reusing
-// drawGrowingLink, the same primitive used everywhere else in this piece
-// for "these are related"), not as an enclosing shape. This isn't only a
-// metaphor: the SI's own 4x6 codebook (GROUPS, below) turns out to be
-// exactly the 4 vertex-stars of a tetrahedron whose 6 edges are the 6
-// doors -- verified directly from GROUPS, not asserted -- and the fixed
-// door layout below is a planar drawing of that same graph. See
-// verifyGameGeometry() for the checked facts, and the comments around
-// GAME_R_SIDE/GAME_R_SPOKE for why the two point-radii differ.
+// the player's own live selection -- is shown by color alone (a door's
+// own fill, matching whichever set it belongs to), not by any connecting
+// line between its members. An earlier version *did* draw a kernel as
+// the complete graph on its member points (reusing drawGrowingLink, the
+// "these are related" primitive used elsewhere in this piece), but that
+// turned out to be redundant with the color already doing the same job,
+// and reported as visual noise on top of it -- removed. What's still
+// true, and still worth knowing: the SI's own 4x6 codebook (GROUPS,
+// below) is exactly the 4 vertex-stars of a tetrahedron whose 6 edges
+// are the 6 doors -- verified directly from GROUPS, not asserted -- and
+// it's this same fact the 3D tetrahedron reveal, much later, draws
+// directly. See verifyGameGeometry() for the checked facts.
 // -----------------------------------------------------------------------
 
 (function () {
@@ -157,12 +159,14 @@
   // *outer* mapping from scroll position to that local t changes.
   //
   // LEGACY_END is where phase 1's own t=1 lands in the new, longer outer
-  // t. Solved exactly, not approximated: style.css grew the track from
-  // 600vh to 1000vh, so outer scroll range is (1000-100)=900 viewport-
-  // heights (100vh being the pinned viewport itself); LEGACY_END*900 has
-  // to equal phase 1's original (600-100)=500 viewport-heights, i.e.
-  // LEGACY_END = 500/900 = 5/9.
-  const LEGACY_END = 5 / 9;
+  // t. Solved exactly, not approximated: style.css grew the track (now
+  // twice -- 600vh originally, then 1000vh, now 1200vh, the last time
+  // specifically to widen CHG.tetraStart's own gap; see style.css's own
+  // note), so outer scroll range is (1200-100)=1100 viewport-heights
+  // (100vh being the pinned viewport itself); LEGACY_END*1100 has to
+  // equal phase 1's original (600-100)=500 viewport-heights, i.e.
+  // LEGACY_END = 500/1100 = 5/11.
+  const LEGACY_END = 5 / 11;
 
   // Phase 2's own chapter boundaries, as a local t running 0->1 over the
   // *remaining* (1 - LEGACY_END) share of outer t -- see tGameOf() below.
@@ -183,63 +187,51 @@
   // so the board and the legend both switch from following t to
   // following real game state (clicks) at that point. Scrolling further
   // still "works" (nothing breaks), it just has nothing left to drive.
-  // Chapters 1-8 (through tetraStart) are the same sequence as before,
-  // just rescaled by a fixed ~0.674 factor to make room, at the end of
-  // this same [0,1] tGame range, for two more chapters this piece didn't
-  // have yet: the tetrahedron's own reveal actually *rotating* into view
-  // (9), and a final summary card (10). Rescaling here -- unlike
-  // LEGACY_END's own phase-1-vs-phase-2 split -- deliberately does *not*
-  // preserve chapters 1-8's absolute scroll-pixel pacing: they simply
-  // play out a bit faster than before now, which is a fine trade given
-  // none of them are especially margin-sensitive (short prose cards, and
-  // an interactive game section that isn't scroll-paced at all once
-  // reached). Rescaling LEGACY_END itself instead, to add the *same*
-  // scroll room without touching chapters 1-8's own pacing, would also
-  // work, but touches the one split in this file most worth leaving
-  // alone once verified (phase 1's own delicate internal margins).
+  // Each boundary below is a fixed vh amount divided by phase 2's own
+  // 600vh total budget (itself LEGACY_END's own doing -- see its note),
+  // not a fraction picked by eye: transition 30, six doors 50, scoop 50,
+  // obvious 50, enough 60, signal 60, play-arrive 50, then a deliberately
+  // large 150vh gap before the reveal starts (see tetraStart's own
+  // note), sweep 60, settled-before-summary 25, and a final 15vh tail.
   const CHG = {
     transitionEnd: 0.05, // 1: recap card; phase 1's own diagram/tile/chart
     // fade out together, one shot, no fade back in (captionAlpha with no
     // inStart..inEnd half -- the same one-shot pattern candidateEnd's own
     // sentence fade-outs already use elsewhere in this file).
-    doorsEnd: 0.13, // 2: "six doors, two that matter" -- prize, dud; the
+    doorsEnd: 0.1333, // 2: "six doors, two that matter" -- prize, dud; the
     // 6 door-points fade in at their fixed positions
-    scoopEnd: 0.22, // 3: Alice has the scoop, but a limited channel
+    scoopEnd: 0.2167, // 3: Alice has the scoop, but a limited channel
     obviousEnd: 0.3, // 4: the most obvious option -- tell Bob
     // everything outright, ~4.9 bits
-    enoughEnd: 0.39, // 5: the realization -- Bob only needs a safe set
+    enoughEnd: 0.4, // 5: the realization -- Bob only needs a safe set
     // that includes the prize; naming the prize door alone already
     // works, ~2.58 bits, but there's something better still
-    signalEnd: 0.49, // 6: just 2 bits, actually -- Alice's 2-dot signal
+    signalEnd: 0.5, // 6: just 2 bits, actually -- Alice's 2-dot signal
     // fades in near the board
-    playArrive: 0.58, // 7: "Play, blind" -- the board stops following t
+    playArrive: 0.5833, // 7: "Play, blind" -- the board stops following t
     // from here on; see the note above.
-    tetraStart: 0.7, // 8: the geometric reveal begins -- the 2D board
+    tetraStart: 0.8333, // 8: the geometric reveal begins -- the 2D board
     // crossfades into the *same* 3D tetrahedron, viewed from directly
     // above its own group-3 vertex (a real, computed rotation angle --
     // solved once, in Node, from "which angle sends V3 to the +-Z axis"
     // -- not an arbitrary starting pose): at that specific angle, the 6
     // doors form a flat, non-overlapping hexagon around group 3's own
-    // vertex, the closest this exact regular tetrahedron ever gets to
-    // resembling the board's own 2D layout. It isn't a pixel-exact
-    // match -- the 2D layout's own two radii (0.5 and 0.16) exist
-    // specifically to keep the 4 groups' fans crossing-free (see
-    // GAME_R_SPOKE's own note), while a true regular tetrahedron's edge-
-    // midpoints are all equidistant from this axis -- so this is a
-    // crossfade to the *nearest honest equivalent*, not a literal
-    // continuation of the same coordinates. Isn't game-interactive from
-    // here on; see isGameInteractive's own note below. Left a wider gap
-    // after playArrive than the straight rescale above would have (0.12
-    // of this range instead of 0.04, about 48 scroll-vh instead of 16) --
-    // caught by computing the actual vh budget directly: the original
-    // felt like it could start the reveal before a reader had a real
-    // chance to play.
-    tetraSweepEnd: 0.85, // 9: the reveal itself -- flat squares thicken
+    // vertex -- and, now that the 2D board itself is a single plain
+    // hexagon too (see GAME_DOOR_RADIUS's own note on why the two-radii
+    // layout and the fan-lines it existed for are both gone), the two
+    // line up almost exactly, not just approximately. Isn't game-
+    // interactive from here on; see isGameInteractive's own note below.
+    // The gap since playArrive is deliberately large -- 150vh, not the
+    // 48vh an earlier version left -- after a report that even 48 was
+    // still easy to scroll past by accident before getting much chance
+    // to actually play; solved for directly (see LEGACY_END's own note
+    // on the track's second height increase), not widened by feel.
+    tetraSweepEnd: 0.9333, // 9: the reveal itself -- flat squares thicken
     // into real cubes as the shape rotates away from that aligned
     // starting angle, scroll-driven (not yet a drag), specifically to
     // make the 3D-ness of the thing undeniable before handing control
     // over to the reader's own drag.
-    summaryStart: 0.93, // 10: the tetrahedron keeps sitting there,
+    summaryStart: 0.975, // 10: the tetrahedron keeps sitting there,
     // draggable, while the legend delivers this piece's own closing
     // card -- the final resting state for the whole explainer.
   };
@@ -774,7 +766,7 @@
     return -1;
   }
 
-  // ---- The tetrahedron layout -----------------------------------------
+  // ---- The board layout -------------------------------------------------
   // Checking GROUPS directly (done once, in Node, before any of this was
   // drawn -- see verifyGameGeometry() below for the load-time version of
   // the same check): each door belongs to exactly 2 of the 4 groups, and
@@ -782,70 +774,40 @@
   // 2-element subsets of {0,1,2,3} -- door i's two group-memberships are
   // exactly the two tetrahedron vertices its edge connects, for all 6
   // doors, no exceptions. So "group g" is precisely the 3 edges (doors)
-  // meeting at vertex g -- a vertex star -- and the whole codebook is a
-  // planar drawing of K4 away from being drawn: an outer triangle of 3
-  // vertices plus 1 vertex at the center, 6 edges (the 3 triangle sides
-  // plus 3 spokes), with each door placed at *its own edge's* midpoint.
-  //
-  // Concretely, for this GROUPS: vertex 3 (the "center" group) is the
-  // spoke doors {0, 1, 5}; vertices 0/1/2 (the "outer" groups) are each
-  // 2 adjacent side-doors plus that vertex's own spoke door: group 0 =
-  // {3,4,5}, group 1 = {1,2,4}, group 2 = {0,2,3}. GAME_SIDE_DOORS/
-  // GAME_SPOKE_DOORS below encode exactly this split; verifyGameGeometry()
-  // confirms it against GROUPS directly rather than trusting this comment.
-  //
-  // One real wrinkle, worked out by direct computation before committing
-  // to this layout (not assumed from "K4 is planar" alone -- that fact is
-  // about the 4 *vertex-to-vertex* edges never crossing, not about
-  // straight lines drawn between *edge-midpoints*, which is a different
-  // graph and doesn't automatically inherit it): placing every door at
-  // its edge's exact midpoint puts all 6 doors on a common circle, and
-  // the center group's own triangle (connecting 3 doors spread evenly
-  // around that circle) crosses each outer group's triangle twice. The
-  // fix is GAME_R_SPOKE < GAME_R_SIDE: pulling the 3 spoke-doors in
-  // toward the center (any radius under GAME_R_SIDE/2, the outer
-  // triangle's own inradius, works -- verified directly below) makes the
-  // center group a small triangle strictly inside the outer triangle,
-  // which removes the crossing entirely. verifyGameGeometry() checks this
-  // at the actual chosen radius, every load, rather than trusting the
-  // margin chosen here.
-  const GAME_R_SIDE = 0.5;
-  const GAME_R_SPOKE = 0.16; // comfortably under 0.25 = GAME_R_SIDE/2
-  const GAME_SIDE_DOORS = { 2: 90, 3: 330, 4: 210 }; // door -> angle (deg)
-  const GAME_SPOKE_DOORS = { 0: 30, 1: 150, 5: 270 };
+  // meeting at vertex g -- a vertex star. This fact still underlies the
+  // whole codebook (findGroup below, and the 3D tetrahedron reveal much
+  // later), but the *2D board* itself no longer tries to draw it as a
+  // planar K4 embedding: an earlier version placed doors at two different
+  // radii specifically so that each group's own 3-door "fan" (a
+  // connecting line drawn between every pair of its doors) never crossed
+  // another group's -- machinery that stopped earning its keep once the
+  // fan-lines themselves were removed (color alone -- a door's own
+  // fill -- already shows which doors are selected or grouped; a line
+  // connecting them on top of that was reported as redundant, and its
+  // occasional crossing as visual noise, not a meaningful signal). With
+  // no lines left to keep apart, the 6 doors are just a plain, single-
+  // radius hexagon now: simpler, and -- picked to line up with
+  // TETRA_ALIGN_X/Y's own resulting angles (computed once, in Node, from
+  // "which angles the aligned 3D view actually projects each door to")
+  // -- it makes CHG.tetraStart's own crossfade close to exact, not just
+  // approximate.
+  const GAME_DOOR_RADIUS = 0.5;
+  const GAME_DOOR_ANGLES = [180, 300, 240, 120, 0, 60]; // door -> angle (deg)
 
   // Door positions in local "game space" units (converted to board pixels
   // by gameToBoard(), the same pattern as vennToBoard() above).
-  const DOOR_LOCAL = (function () {
-    const pos = new Array(NUM_DOORS);
-    function place(map, r) {
-      for (const key of Object.keys(map)) {
-        const d = Number(key);
-        const rad = (map[key] * Math.PI) / 180;
-        pos[d] = { x: r * Math.cos(rad), y: r * Math.sin(rad) };
-      }
-    }
-    place(GAME_SIDE_DOORS, GAME_R_SIDE);
-    place(GAME_SPOKE_DOORS, GAME_R_SPOKE);
-    return pos;
-  })();
+  const DOOR_LOCAL = GAME_DOOR_ANGLES.map((deg) => {
+    const rad = (deg * Math.PI) / 180;
+    return { x: GAME_DOOR_RADIUS * Math.cos(rad), y: GAME_DOOR_RADIUS * Math.sin(rad) };
+  });
 
-  // A player's own selection can be any 1-6 points, not just the 4 real
-  // groups, and every pair of selected points gets connected the same
-  // way (see drawKernelFan below) -- so unlike the 4 real groups (always
-  // crossing-free, checked below), a selection of 5 or 6 points is *not*
-  // claimed to be crossing-free: its complete graph contains K5, which is
-  // non-planar (Kuratowski), so no placement avoids at least one crossing
-  // there. Selections of 4 points are a mixed bag at this exact layout --
-  // some cross, some don't, depending on which 4 -- and that's fine, not
-  // a bug: opening 5+ of 6 doors is already a poor blind-guess strategy
-  // (it makes finding the zonk almost certain), so an occasional crossing
-  // reads as "you're tangling yourself up," exactly as intended.
   (function verifyGameGeometry() {
-    // Structural check: GROUPS really is the tetrahedron's 4 vertex-stars
-    // -- each door in exactly 2 groups, and the six {group,group} pairs
-    // those memberships produce are exactly the six 2-subsets of
-    // {0,1,2,3}, each covered once.
+    // GROUPS really is the tetrahedron's 4 vertex-stars -- each door in
+    // exactly 2 groups, and the six {group,group} pairs those
+    // memberships produce are exactly the six 2-subsets of {0,1,2,3},
+    // each covered once. Still checked directly, every load, even though
+    // nothing about the 2D board's own drawing depends on it anymore --
+    // findGroup() and the 3D tetrahedron reveal both still do.
     const doorGroups = [];
     for (let d = 0; d < NUM_DOORS; d++) {
       const gs = [];
@@ -861,50 +823,12 @@
     }
     if (seenPairs.size !== 6) throw new Error("Game geometry check failed: not all 6 vertex pairs covered");
 
-    // Each group's own doors must be exactly the doors incident to that
-    // group's vertex -- confirms GAME_SIDE_DOORS/GAME_SPOKE_DOORS's own
-    // vertex assignment (which group is "center") actually matches
-    // GROUPS, not just a plausible-looking guess at the correspondence.
     const groupDoors = GROUPS.map((row) => row.map((b, i) => (b ? i : -1)).filter((i) => i >= 0));
     for (let g = 0; g < GROUPS.length; g++) {
       const incident = [];
       for (let d = 0; d < NUM_DOORS; d++) if (doorGroups[d].includes(g)) incident.push(d);
       if (JSON.stringify(groupDoors[g]) !== JSON.stringify(incident)) {
         throw new Error("Game geometry check failed: group " + g + " doors don't match its vertex star");
-      }
-    }
-
-    // Geometric check: no two of the 4 real groups' own 3-edge fans cross
-    // each other, at the actual DOOR_LOCAL positions drawn. A straight
-    // edge's crossing test is exact -- unlike verifyVennGeometry()'s
-    // point-sampling (needed there for curved shape boundaries), no
-    // sampling is needed here, just the standard segment-orientation test.
-    function orient(o, a, b) {
-      return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-    }
-    function segmentsCross(p1, p2, p3, p4) {
-      const d1 = orient(p3, p4, p1), d2 = orient(p3, p4, p2);
-      const d3 = orient(p1, p2, p3), d4 = orient(p1, p2, p4);
-      return (d1 > 0) !== (d2 > 0) && d1 !== 0 && d2 !== 0 && (d3 > 0) !== (d4 > 0) && d3 !== 0 && d4 !== 0;
-    }
-    function fanEdges(doors) {
-      const edges = [];
-      for (let i = 0; i < doors.length; i++) for (let j = i + 1; j < doors.length; j++) edges.push([doors[i], doors[j]]);
-      return edges;
-    }
-    function sharesEndpoint(e1, e2) {
-      return e1[0] === e2[0] || e1[0] === e2[1] || e1[1] === e2[0] || e1[1] === e2[1];
-    }
-    for (let g1 = 0; g1 < GROUPS.length; g1++) {
-      for (let g2 = g1 + 1; g2 < GROUPS.length; g2++) {
-        for (const e1 of fanEdges(groupDoors[g1])) {
-          for (const e2 of fanEdges(groupDoors[g2])) {
-            if (sharesEndpoint(e1, e2)) continue; // sharing a door is fine, not a crossing
-            if (segmentsCross(DOOR_LOCAL[e1[0]], DOOR_LOCAL[e1[1]], DOOR_LOCAL[e2[0]], DOOR_LOCAL[e2[1]])) {
-              throw new Error(`Game geometry check failed: group ${g1}'s fan crosses group ${g2}'s fan`);
-            }
-          }
-        }
       }
     }
   })();
@@ -2190,33 +2114,11 @@
     ctx.restore();
   }
 
-  // The complete graph on a set of board points -- every pair joined by
-  // drawGrowingLink at progress=1 (a plain, already-finished line; see
-  // its own definition above). This is how *every* kernel reads in this
-  // section, real group or live selection alike: not an enclosing shape
-  // (doors are points, not kernels themselves -- see the top-of-file
-  // note), but the relationship among its member points, made visible
-  // the same way a growing line already means "these are related"
-  // everywhere else in this piece.
-  function drawKernelFan(points, color, alpha) {
-    if (alpha <= 0 || points.length < 2) return;
-    for (let i = 0; i < points.length; i++) {
-      for (let j = i + 1; j < points.length; j++) drawGrowingLink(points[i], points[j], 1, alpha, color);
-    }
-  }
-
   const DOOR_DOT_RADIUS_MULT = 0.075;
 
   function drawGameBoard(alpha) {
     if (alpha <= 0) return;
     const dotRadius = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT, 5);
-
-    // The player's own live selection, drawn as a kernel fan in the same
-    // candidate-blue the cheat sheet's real groups use below -- both are
-    // literally the same role (a candidate subset of the 6-action
-    // universe), just one pre-agreed and one chosen on the spot.
-    const selPoints = [...selectedDoors].map(doorBoardPos);
-    drawKernelFan(selPoints, CANDIDATE_COLOR, alpha * 0.9);
 
     for (let i = 0; i < NUM_DOORS; i++) {
       const p = doorBoardPos(i);
@@ -2278,12 +2180,12 @@
 
   function aliceSignalPos() {
     const c = gameToBoard(0, 0);
-    return { x: c.x, y: c.y - gameUnit * (GAME_R_SIDE + 0.36) };
+    return { x: c.x, y: c.y - gameUnit * (GAME_DOOR_RADIUS + 0.36) };
   }
 
   function tallyPos() {
     const c = gameToBoard(0, 0);
-    return { x: c.x, y: c.y + gameUnit * (GAME_R_SIDE + 0.3) };
+    return { x: c.x, y: c.y + gameUnit * (GAME_DOOR_RADIUS + 0.3) };
   }
 
   // A persistent win/loss tally -- plain drawLabel text, no separate DOM
@@ -2332,7 +2234,6 @@
         const inGroup = doors.includes(i);
         drawSquareMarker(p.x, p.y, dotRadius, inGroup ? CANDIDATE_COLOR : NEUTRAL, alpha * (inGroup ? 1 : 0.3), 2.2);
       }
-      drawKernelFan(doors.map(miniPos), CANDIDATE_COLOR, alpha * 0.9);
       const signalY = slot.y - miniUnit * (0.25 + CHEATSHEET_SIGNAL_GAP_MULT);
       drawSignalIndicator(slot.x, signalY, g, dotRadius * 0.85, dotRadius * 3.2, alpha, NEUTRAL);
     }
