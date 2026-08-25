@@ -1118,19 +1118,37 @@
 
   // True from the moment the board has arrived at "Play, blind"
   // (CHG.playArrive) onward, with *no* upper bound -- the single
-  // predicate the tap/drag handlers, layoutTetraGrabZone, render()'s own
-  // reset check, and the legend logic below all use, so "is the board
-  // interactive right now" is decided in exactly one place. Unlike an
-  // earlier version, this never goes false again once true: there is no
-  // later, separate scene with a different interaction model to hand off
-  // to -- rotating and tapping a door have always been two gestures on
-  // the very same shape -- so there's no reason for an upper bound here
-  // anymore, and no separate "has the game session been reached at all,
-  // even past some later interactive-only window" predicate needed
-  // either.
+  // predicate render()'s own reset check and the legend logic below use,
+  // so "is the *game* (door-tapping, Open/Reveal/Play-again) interactive
+  // right now" is decided in exactly one place. Unlike an earlier
+  // version, this never goes false again once true: there is no later,
+  // separate scene with a different interaction model to hand off to --
+  // so there's no reason for an upper bound here anymore. Note this is
+  // deliberately *narrower* than isBoardVisible() below: the shape
+  // itself is rotatable well before this goes true (see that function's
+  // own note) -- this one gates only door-*tapping*, which needs a real
+  // secret/round to act on, not yet present during the earlier
+  // walk-through chapters.
   function isGameInteractive(tOuter) {
     const tGame = tGameOf(tOuter);
     return tOuter >= LEGACY_END && tGame >= CHG.playArrive;
+  }
+
+  // True from the moment the tetrahedron itself has fully faded in
+  // (CHG.doorsEnd) onward, with no upper bound -- gates the drag-to-
+  // rotate grab zone (layoutTetraGrabZone). Deliberately *earlier* than
+  // isGameInteractive(): the shape is a real, concrete object the whole
+  // "six doors, two that matter" .. "Alice's signal" walk-through is
+  // *about*, and reported directly as feeling wrong to not be able to
+  // rotate and inspect while reading those cards, even though the game
+  // itself (door-tapping, the secret, the round) doesn't start until
+  // playArrive. Rotating during this earlier stretch is purely a look-
+  // at-the-shape gesture -- toggling a door there would have no round
+  // to belong to, so onTetraPointerUp's own tap-to-toggle branch still
+  // checks isGameInteractive() separately, narrower than this.
+  function isBoardVisible(tOuter) {
+    const tGame = tGameOf(tOuter);
+    return tOuter >= LEGACY_END && tGame >= CHG.doorsEnd;
   }
 
   function updateLegend(tOuter) {
@@ -2468,11 +2486,13 @@
   const TETRA_HIT_RADIUS_MULT = 1.3;
 
   function layoutTetraGrabZone(t) {
-    // Active from playArrive itself, with no upper bound: the shape is
-    // draggable (and tappable, for door selection -- see
-    // onTetraPointerUp) for the entire time it's ever on screen. See
-    // isGameInteractive's own note above.
-    const active = isGameInteractive(t);
+    // Active from doorsEnd itself, with no upper bound: draggable for
+    // the entire time the shape is on screen at all, well before the
+    // game itself becomes interactive at playArrive -- see
+    // isBoardVisible's own note above. Door-*tapping* is still gated
+    // separately, inside onTetraPointerUp, by the narrower
+    // isGameInteractive().
+    const active = isBoardVisible(t);
     tetraGrabZone.hidden = !active;
     if (!active) return;
     const c = gameToBoard(0, 0);
@@ -2553,12 +2573,19 @@
   // (not 'cancel'): a gesture interrupted mid-flight (e.g. by a second
   // touch, or the browser reclaiming the pointer) shouldn't retroactively
   // count as a completed tap just because it happened not to travel far
-  // before being cut short.
+  // before being cut short. And on isGameInteractive(lastT): the grab
+  // zone itself is active earlier (isBoardVisible, from doorsEnd -- see
+  // layoutTetraGrabZone), specifically so the shape can be rotated
+  // during the earlier walk-through cards, but there's no secret/round
+  // yet for a tap to act on before playArrive -- a tap during that
+  // earlier stretch is just a (very-low-movement) rotation, not a
+  // door-toggle attempt.
   function onTetraPointerUp(e) {
     if (e.pointerId !== tetraActivePointerId) return;
     tetraDragging = false;
     tetraActivePointerId = null;
     if (e.type !== "pointerup" || tetraGestureDist >= TETRA_TAP_MAX_PX) return;
+    if (!isGameInteractive(lastT)) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
