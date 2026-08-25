@@ -149,11 +149,15 @@ html, body {
    a new visual language of its own. Unlike .legend (pointer-events:
    none, a pure caption overlay), these need pointer-events: auto to
    actually be clickable. */
+/* `position: relative` makes this a positioning context for
+   #gameRevealBtn (see below and index.html's own note) -- everything
+   else here (the `display: flex` row) is only ever "Open selected" or
+   "Play again," never both, so a plain centered row is all that
+   needs to be. */
 .game-controls {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
-  gap: 0.6rem;
   width: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
@@ -167,6 +171,24 @@ html, body {
    long before the game becomes interactive. */
 .game-controls[hidden] {
   display: none;
+}
+
+/* Deliberately taken *out* of .game-controls's own flex flow entirely
+   -- see index.html's own note for why floating this, rather than
+   giving it any kind of normal-flow slot (shared row or a row of its
+   own), is what's actually needed: anything that's part of the flow
+   changes that flow's own total size the moment it appears, which
+   perturbs "Open selected"/"Play again"'s own position one way or
+   another. `bottom: 100%` anchors this button's own bottom edge to
+   .game-controls's own top edge, i.e. directly above the primary
+   button row, growing further upward from there as needed -- never
+   downward into the legend card directly below. */
+#gameRevealBtn {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 0.6rem;
 }
 
 .game-btn {
@@ -199,16 +221,17 @@ html, body {
 
 /* #gameOpenBtn and #gameNewRoundBtn are mutually exclusive -- exactly
    one hidden at all times (see script.js's own syncGameControls) --
-   and meant to occupy the *exact same* on-screen slot when swapped, so
-   the mouse is already positioned over "Play again" the instant a
-   round resolves. `justify-content: center` on their shared parent
-   (.game-controls) means that only holds if the two buttons are
-   themselves the same width -- "Play again" is shorter text than
-   "Open selected," and without this, swapping one for the other
-   re-centered the whole row and shifted the visible button sideways by
-   several dozen px, measured directly, not just eyeballed. 132px is
-   "Open selected"'s own natural width (measured at this font-size),
-   rounded up slightly. */
+   sharing their own isolated `.game-controls-row` (see index.html's
+   own note on why that row is kept separate from "Reveal the cheat
+   sheet"'s), and meant to occupy the *exact same* on-screen slot when
+   swapped, so the mouse is already positioned over "Play again" the
+   instant a round resolves. `justify-content: center` on that shared
+   row means that only holds if the two buttons are themselves the same
+   width -- "Play again" is shorter text than "Open selected," and
+   without this, swapping one for the other re-centered the row and
+   shifted the visible button sideways by several dozen px, measured
+   directly, not just eyeballed. 132px is "Open selected"'s own natural
+   width (measured at this font-size), rounded up slightly. */
 #gameOpenBtn,
 #gameNewRoundBtn {
   min-width: 132px;

@@ -103,12 +103,12 @@ framework. The discipline, in order, for *any* nontrivial change:
      while `tGame` is in `[doorsEnd, playArrive)`, or briefly past
      `playArrive` until it finishes its current revolution and snaps to
      rest — see "Tetrahedron auto-spin" below), and the cheat-sheet
-     vertex pulse while `gamePhase === 'cheatsheet'` (see "Cheat-sheet
-     vertex pulse" below — it stops the moment the player's first move
-     flips `gamePhase` to `'hinted'`). Idle-static must still hold
-     everywhere else: before `doorsEnd`, once the spin has settled
-     at/past `playArrive`, and once `gamePhase` has moved past
-     `'cheatsheet'`.
+     vertex pulse while `isCheatsheetPulseActive()` (see "Cheat-sheet
+     vertex pulse" below — it stops the moment the current round
+     actually resolves, not merely once a door gets selected). Idle-
+     static must still hold everywhere else: before `doorsEnd`, once
+     the spin has settled at/past `playArrive`, and once the round has
+     resolved.
    - **Forward/backward scroll scrub**: for every *scroll-driven*
      chapter (not the interactive game/tetrahedron-drag past `playArrive`
      — those are legitimately state-driven, not reversible-by-
@@ -191,7 +191,7 @@ roughly this order (grep for the section-header comments, which use
   a short tail past `playArrive` to finish its current revolution) and
   cancelled permanently, instantly, by the first real drag (see
   "Tetrahedron auto-spin" below) — and a **cheat-sheet vertex pulse**,
-  running only while `gamePhase === 'cheatsheet'` (see "Cheat-sheet
+  running only while `isCheatsheetPulseActive()` (see "Cheat-sheet
   vertex pulse" below). The latter two are genuinely wall-clock-time-
   driven, not just user-input-driven like the drag exception, so each
   narrows the idle-static invariant differently, in its own separate
@@ -613,54 +613,55 @@ draws a second, smaller line right under the main verdict via a small
 
 ### "Play again" replaces "Open selected" in place (bottom row)
 
-Went through two designs this session, in order — worth knowing both,
-since the first is exactly the kind of thing to *not* redo without a
-new reason:
+Went through **three** designs this session, in order — worth knowing
+all three, since the first two are exactly the kind of thing to *not*
+redo without a new reason. The requirement, stated precisely: the
+instant a round resolves, "Play again" must occupy the *exact* pixel
+rectangle "Open selected" just did — always, including the very first
+round ever (when "Reveal the cheat sheet" also appears in that same
+instant), not just in later, steady-state rounds.
 
 1. **Floating, under the banner.** Moved `#gameNewRoundBtn` out of
    `.game-controls` entirely, into its own top-level element
    (`.play-again-floating`) positioned every `render()` by a
    `layoutPlayAgainButton(t)` function, directly beneath the win/loss
-   banner. Picked up its own font-family bug along the way (`.game-btn`
-   sets `font-family: inherit`, which stopped resolving to the real
-   font list once this button was no longer a descendant of
-   `.game-controls`) — fixed at the time, but moot once reverted.
-   **Reported directly as not actually where the mouse was** — the
-   whole point was to save the player a cursor trip, and floating it
-   under the banner didn't do that; the mouse is on "Open selected," in
-   the *bottom* row, the instant a round resolves.
-2. **Current: back in `.game-controls`, replacing "Open selected" in
-   its exact slot.** `#gameOpenBtn` and `#gameNewRoundBtn` are
-   mutually exclusive — `syncGameControls()` sets
-   `gameOpenBtn.hidden = roundResolved` and `gameNewRoundBtn.hidden =
-   !roundResolved`, never both visible — and adjacent in DOM order, so
-   whichever is visible occupies the same leading flex slot. `layout
-   PlayAgainButton`/`.play-again-floating` are both gone entirely (dead
-   code deleted, not left disabled); `resultBannerPos()`'s own offset
-   reverted from `0.46` back to its simpler original `0.36`, since only
-   the banner + reason line need room there now, not a button too.
-
-**Getting the *exact* slot right needed one more fix**: `.game-controls`
-uses `justify-content: center`, so simply toggling `hidden` on
-same-position-in-DOM-order buttons isn't enough on its own if the two
-buttons are different widths — "Play again" is shorter text than "Open
-selected," and swapping one for the other re-centered the whole row,
-shifting the visible button sideways by several dozen px (measured
-directly: ~80–95px at 900×700, enough to leave the mouse well outside
-the new button entirely — the opposite of the goal). Fixed with a
-shared `min-width: 132px` on both (`"Open selected"`'s own natural
-width, rounded up) so the slot itself never changes size, regardless of
-which of the two currently fills it. Confirmed directly, across two
-different scenarios: swapping when *nothing else* in the row changes
-(the ordinary, repeated round-after-round case, once the cheat sheet
-is already revealed and "Reveal the cheat sheet" never reappears) lands
-at `dx = 0`; the *one* exception is the very first reveal, where
-"Reveal the cheat sheet" *also* appears in the same row at the same
-moment "Open selected" → "Play again" swaps — that third button
-genuinely changes the row's own total width no matter how the first
-two are sized, so that one specific, one-time transition still shifts
-slightly. Accepted as a rare, one-time exception, not chased further —
-the repeated-play loop this was actually about is exact.
+   banner. **Reported directly as not actually where the mouse was** —
+   the whole point was to save the player a cursor trip, and floating
+   it under the banner didn't do that; the mouse is on "Open selected,"
+   in the *bottom* row, the instant a round resolves.
+2. **Back in `.game-controls`, one shared row, matched `min-width`.**
+   `#gameOpenBtn`/`#gameNewRoundBtn` mutually exclusive
+   (`gameOpenBtn.hidden = roundResolved`, `gameNewRoundBtn.hidden =
+   !roundResolved`) in the same row as `#gameRevealBtn`, with a shared
+   `min-width: 132px` on the first two so *swapping between them alone*
+   doesn't shift anything (`justify-content: center` only stays put if
+   the swapped elements are the same size). This is correct for every
+   round *after* the first — but the very first round also reveals
+   `#gameRevealBtn` in that same row, in that same instant, which
+   changes the row's own total width regardless of how the first two
+   are sized, shifting everything sideways anyway. **Verified directly,
+   not assumed fixed**: `dx = 0` for round 2 onward, `dx ≈ 94px` for
+   round 1 — reported back as still landing on "Reveal the cheat
+   sheet" instead. (Briefly tried giving `#gameRevealBtn` its own
+   second flex *row*, stacked above the first — fixed the horizontal
+   shift, introduced a *vertical* one instead, of almost the same
+   magnitude, for the same underlying reason: anything sharing normal
+   flow with the primary button perturbs its position when it
+   appears/disappears, regardless of which axis.)
+3. **Current: `#gameRevealBtn` taken out of the flow entirely.**
+   `.game-controls` is `position: relative`; `#gameRevealBtn` is
+   `position: absolute; bottom: 100%; left: 50%; transform:
+   translateX(-50%)` — floating just *above* the primary
+   Open/PlayAgain row, contributing *zero* width or height to
+   `.game-controls`'s own flow. `#gameOpenBtn`/`#gameNewRoundBtn` are
+   now the *only* normal-flow content of that row, so their own
+   position depends on nothing else, ever — confirmed `dx = 0, dy = 0`
+   for round 1 *and* every later round, the one case that never
+   actually worked in either of the first two designs. `layoutPlay
+   AgainButton`/`.play-again-floating`/the two-row HTML structure are
+   all gone entirely (dead code deleted, not left disabled);
+   `resultBannerPos()`'s own offset stayed at its simpler original
+   `0.36` (only the banner + reason line need room there, no button).
 
 ### Selected-door color: bright white, not blue, and not shaded either
 
@@ -737,16 +738,25 @@ means the vertex's own existing glowing dot (`drawGlow`, a radial-
 gradient glow that already reads as a small glowing orb), not a new 3D
 primitive.
 
-- `isCheatsheetPulseActive()` → `cheatsheetRevealed && selectedDoors.size
-  === 0`. **Not** `gamePhase === 'cheatsheet'` (the first version) —
-  `gamePhase` only ever passes through `'cheatsheet'` once per
-  *session*; every later round (reached via "Play again," which always
-  re-`randomizeSecret()`s) goes straight to `'hinted'` and stays there,
-  so that check fired the pulse once, on the very first reveal, and
-  never again — reported directly as "after the first
-  growing/shrinking... it apparently stops doing it." Keying off
-  `selectedDoors` instead re-arms naturally every time `resetRound()`
-  clears it, at the start of *every* round, not just the first.
+- `isCheatsheetPulseActive()` → `cheatsheetRevealed && !roundResolved`.
+  Went through **three** conditions this session:
+  1. `gamePhase === 'cheatsheet'` — `gamePhase` only ever passes through
+     `'cheatsheet'` once per *session*; every later round (reached via
+     "Play again," which always re-`randomizeSecret()`s) goes straight
+     to `'hinted'` and stays there, so this fired the pulse once, on
+     the very first reveal, and never again — reported directly as
+     "after the first growing/shrinking... it apparently stops doing
+     it."
+  2. `selectedDoors.size === 0` — re-armed correctly every round, but
+     stopped the instant the player selected even a *single* door,
+     reported directly as it should keep going while still clicking
+     around/deciding, not just before the first click.
+  3. **Current**: `!roundResolved` — covers the *entire* window a hint
+     is actually still useful for, through any number of
+     selections/deselections, stopping only once the round is actually
+     resolved (`openSelected()`), and re-arming at the start of every
+     new round via `resetRound()` (which clears `roundResolved` back to
+     `false`).
 - `CHEATSHEET_PULSE_PERIOD_S` (3.5s), `CHEATSHEET_PULSE_SPEED`
   (`2*PI / period`), `CHEATSHEET_PULSE_AMPLITUDE` (`0.75`, i.e. grows
   up to +75% of the dot's own base radius). A gentle multi-second
@@ -785,8 +795,9 @@ primitive.
   long as that's true, parallel to `updateTetraAutoSpin`'s own return
   value. No settle/snap semantics of its own to get right here (unlike
   the auto-spin): the pulse simply stops changing, wherever it happens
-  to be in its own cycle, the instant a door gets selected — there's no
-  "must end at a specific canonical value" fact to land on exactly.
+  to be in its own cycle, the instant the round actually resolves —
+  there's no "must end at a specific canonical value" fact to land on
+  exactly.
 - **Verified by sampling brightness at a fixed screen offset from each
   of the 4 vertices across ~4 real seconds**, not just by eyeballing a
   screenshot (a pulse, like the auto-spin's own rotation rate, is a
@@ -795,10 +806,14 @@ primitive.
   by a large margin (hundreds, in raw summed-RGB terms) while the other
   three stay *exactly* constant, confirming both that the right vertex
   pulses and that no other vertex does. Re-checked across *two*
-  consecutive rounds (not just one) specifically to catch the
+  consecutive rounds (not just one) specifically to catch condition #1's
   re-triggering bug above — the first version's own test suite only
   ever checked a single round, which is exactly why that bug shipped
-  initially undetected.
+  initially undetected. Re-checked *again*, later, specifically
+  clicking (selecting, not opening) one door and then a second one in
+  between samples, to catch condition #2's premature-stop bug the same
+  way — variance stayed large (~500) through both selections, dropping
+  to exactly `0` only after actually opening.
 
 ### Legend copy: `cheatsheet` instruction-first; a "claudism" cut from the close
 

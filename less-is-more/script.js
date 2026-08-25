@@ -2406,18 +2406,20 @@
 
   // True for as long as the current round's own hinted vertex still
   // deserves the cheat-sheet pulse's attention: the cheat sheet is
-  // known, *and* the player hasn't touched this round yet at all
-  // (nothing selected). Deliberately keyed to `selectedDoors.size`, not
-  // `gamePhase === 'cheatsheet'` (an earlier version): `gamePhase` only
-  // ever passes through `'cheatsheet'` once per *session* -- every
-  // later round, reached via "Play again," goes straight to `'hinted'`
-  // and stays there, so a `gamePhase` check made the pulse fire on the
-  // very first reveal and never again, reported directly as it
-  // "apparently stops doing it" after that first round. Checking
-  // `selectedDoors` instead re-arms naturally every time `resetRound()`
-  // clears it -- at every new round, not just the first.
+  // known, and this round hasn't been *resolved* yet. Deliberately
+  // keyed to `roundResolved`, not `gamePhase === 'cheatsheet'` (the
+  // first version -- `gamePhase` only ever passes through
+  // `'cheatsheet'` once per *session*, so that check fired the pulse
+  // once and never again past the first round) and not
+  // `selectedDoors.size === 0` either (the second version -- stopped
+  // the instant the player selected a *single* door, reported directly
+  // as it should keep going while still clicking around/deciding, not
+  // just before the first click). `roundResolved` covers the *entire*
+  // window a hint is actually still useful for -- through any number
+  // of selections/deselections -- and re-arms naturally every new
+  // round via `resetRound()` (which clears it back to `false`).
   function isCheatsheetPulseActive() {
-    return cheatsheetRevealed && selectedDoors.size === 0;
+    return cheatsheetRevealed && !roundResolved;
   }
 
   // The board itself: wireframe edges, the 4 vertices (dot always; the
@@ -2667,10 +2669,14 @@
     gameControlsEl.hidden = !interactive;
     if (!interactive) return;
     // gameOpenBtn/gameNewRoundBtn are mutually exclusive -- exactly one
-    // hidden at all times -- so that whichever is visible sits in the
-    // same leading flex slot (see index.html's own note): resolving a
-    // round hides "Open selected" and reveals "Play again" in
-    // precisely the position the mouse was just clicking.
+    // hidden at all times -- so that whichever is visible sits in
+    // precisely the same slot: resolving a round hides "Open selected"
+    // and reveals "Play again" right where the mouse was just clicking.
+    // This has to hold even the very first time a round ever resolves,
+    // when "Reveal the cheat sheet" *also* becomes visible in that same
+    // moment -- which is exactly why that button is positioned outside
+    // this row's own flow entirely (see index.html/style.css's own
+    // note): toggling its hidden state here never perturbs this row.
     gameOpenBtn.hidden = roundResolved;
     gameOpenBtn.disabled = selectedDoors.size === 0;
     gameNewRoundBtn.hidden = !roundResolved;

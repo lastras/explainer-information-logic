@@ -40,21 +40,30 @@
       <!-- "Guess the Door" game controls -- the only new DOM in this
            piece. Plain buttons, shown/hidden by script.js as the game's
            own state machine (not scroll position) progresses; see
-           script.js's own "Guess the Door" section for why. gameOpenBtn
-           and gameNewRoundBtn are mutually exclusive (exactly one
-           hidden at all times, toggled together by syncGameControls) --
-           deliberately adjacent in DOM order, in that order, so that
-           whichever is visible occupies the same leading flex slot: a
-           round resolving hides "Open selected" and reveals "Play
-           again" in *precisely* the position the mouse was just
-           clicking, no cursor travel needed for another round. An
-           earlier version instead floated "Play again" as its own
-           element, positioned under the win/loss banner -- reverted;
-           reported directly as not actually where the mouse was. -->
+           script.js's own "Guess the Door" section for why.
+
+           gameOpenBtn/gameNewRoundBtn (mutually exclusive, exactly one
+           hidden at all times) are the *only* normal-flow content of
+           .game-controls -- gameRevealBtn is deliberately
+           `position: absolute` (see style.css), floating just *above*
+           this row without taking up any space in the flow itself.
+           Two earlier versions both let "Reveal the cheat sheet"
+           appearing alongside "Play again" -- which happens exactly
+           once, the very first time a round resolves -- perturb
+           "Play again"'s own position and shift it out from under the
+           mouse: first horizontally (one shared, centered flex row --
+           Reveal's own width pulled the centering off), then when that
+           was fixed, vertically instead (Reveal given its own row
+           below this one -- its own height pushed this row upward,
+           since the whole stack grows upward from a bottom anchor).
+           Taking gameRevealBtn out of the flow entirely, in both axes
+           at once, is what actually makes "Open selected"/"Play
+           again"'s own position depend on *nothing* else in this
+           card. -->
       <div class="game-controls" id="gameControls" hidden>
+        <button id="gameRevealBtn" class="game-btn" type="button" hidden>Reveal the cheat sheet</button>
         <button id="gameOpenBtn" class="game-btn game-btn-primary" type="button">Open selected</button>
         <button id="gameNewRoundBtn" class="game-btn game-btn-primary" type="button" hidden>Play again</button>
-        <button id="gameRevealBtn" class="game-btn" type="button" hidden>Reveal the cheat sheet</button>
       </div>
       <div class="legend" id="legend">
         <h3 id="legendHeading"></h3>
