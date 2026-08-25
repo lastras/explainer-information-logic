@@ -2571,30 +2571,64 @@
   // both, or a drag could become enabled while native scrolling is still
   // also active for it (or vice versa).
   //
-  // Never touches touch-action while tetraDragging is true, even though
-  // render() (and so this) keeps firing during an off-shape "scroll"
-  // gesture -- that gesture's own manual window.scrollBy calls change t
-  // just like a real scroll would, and a *scroll-up* (backward) drag
-  // will often cross back below tetraSweepEnd mid-gesture, which used to
-  // flip touch-action to "auto" while that exact touch was still live.
-  // Real mobile browsers handle a touch-action change on an in-progress
-  // touch inconsistently -- reported directly as scrolling up (but not
-  // down) coming out "screwed up," which is exactly the direction that
-  // crosses this boundary mid-drag going the other way. Recomputed once
-  // the gesture actually ends instead (see onTetraPointerUp) -- the
-  // gesture's own already-decided mode doesn't need touch-action to
-  // change mid-flight regardless, since everything past pointerdown is
-  // already fully manual either way (see onTetraPointerMove).
+  // Never touches touch-action while *any* touch is currently down on
+  // the canvas -- not just one this code has itself claimed as a drag
+  // (tetraDragging), but any touch at all, tracked unconditionally by
+  // tetraActiveTouchPointers below regardless of where it started.
+  //
+  // The first version of this only checked tetraDragging, which covers a
+  // gesture that *starts* inside this zone and scrolls itself back out
+  // (see onTetraPointerMove's own manual scrollBy) -- but a perfectly
+  // ordinary scroll that starts *above* this zone (touch-action: "auto"
+  // at that moment, so it's a plain native browser scroll, never claimed
+  // by tetraDragging at all) and continues down *into* it hits exactly
+  // the same underlying problem from the other side: t crossing
+  // tetraSweepEnd mid-scroll used to flip touch-action to "none" while
+  // that same native-scroll touch was still live, which real mobile
+  // browsers handle inconsistently -- reported directly as heavy flicker
+  // scrolling down from above the tetrahedron into it. Recomputed once
+  // every touch has actually lifted instead (see both onTetraPointerUp
+  // and the always-on tracking below).
   function syncTetraTouchAction(t) {
-    if (tetraDragging) return;
+    if (tetraDragging || tetraActiveTouchPointers.size > 0) return;
     canvas.style.touchAction = isTetraActive(t) && tGameOf(t) >= CHG.tetraSweepEnd ? "none" : "auto";
   }
 
-  // Only one pointer is ever tracked at a time -- see onTetraPointerDown's
-  // own note on why a second, simultaneous one (an incidental
-  // palm/other-hand touch, most commonly) must be ignored outright rather
-  // than taking over.
+  // Only one pointer is ever *claimed* as a drag at a time -- see
+  // onTetraPointerDown's own note on why a second, simultaneous one (an
+  // incidental palm/other-hand touch, most commonly) must be ignored
+  // outright rather than taking over.
   let tetraActivePointerId = null;
+
+  // Every touch physically down on the canvas, tracked unconditionally --
+  // independent of tetraActivePointerId/tetraDragging above, which only
+  // track a touch this code has actually *claimed*. A plain scroll that
+  // starts outside this zone is never claimed at all, but still needs to
+  // block syncTetraTouchAction above for as long as it's live.
+  //
+  // Deliberately populated from plain Touch Events (touchstart/touchend/
+  // touchcancel below), not from the Pointer Events above: once a
+  // touch-action: "auto" gesture gets picked up by the browser as a
+  // native scroll, the browser fires pointercancel for it almost
+  // immediately (per spec -- pointer tracking doesn't apply once native
+  // compositor scrolling takes over) -- but touchmove/touchend keep
+  // firing for the *whole* physical gesture regardless. Using Pointer
+  // Events here (tried first) meant this set emptied out again within
+  // the first couple of pixels of *any* native scroll, long before it
+  // ever reached this zone -- silently defeating the whole point of
+  // tracking it.
+  const tetraActiveTouchPointers = new Set();
+
+  function onTetraTouchStart(e) {
+    for (const touch of e.changedTouches) tetraActiveTouchPointers.add(touch.identifier);
+  }
+  function onTetraTouchEnd(e) {
+    for (const touch of e.changedTouches) tetraActiveTouchPointers.delete(touch.identifier);
+    syncTetraTouchAction(lastT);
+  }
+  canvas.addEventListener("touchstart", onTetraTouchStart, { passive: true });
+  canvas.addEventListener("touchend", onTetraTouchEnd, { passive: true });
+  canvas.addEventListener("touchcancel", onTetraTouchEnd, { passive: true });
 
   // A single move event's delta is clamped to this many px before being
   // applied to either rotation or the manual scroll replay -- a last-
@@ -2659,10 +2693,11 @@
   }
 
   function onTetraPointerUp(e) {
-    if (e.pointerId !== tetraActivePointerId) return;
-    tetraDragging = false;
-    tetraActivePointerId = null;
-    syncTetraTouchAction(lastT); // safe now -- see syncTetraTouchAction's own note on why not during
+    if (e.pointerId === tetraActivePointerId) {
+      tetraDragging = false;
+      tetraActivePointerId = null;
+    }
+    syncTetraTouchAction(lastT); // safe now that this pointer is gone -- see syncTetraTouchAction's own note on why not during
   }
 
   canvas.addEventListener("pointerdown", onTetraPointerDown);
