@@ -1074,19 +1074,21 @@
   // tracking and no risk of the two drifting out of sync.
   const TETRA_AUTOSPIN_TILT = (10 * Math.PI) / 180; // ~10 degrees
 
-  // The cheat sheet's own vertex pulse (see drawGameBoard): the one
-  // vertex wearing the code that actually matches the current secret
-  // (hintedGroup) slowly grows and shrinks, real-time, for as long as
-  // gamePhase is 'cheatsheet' -- drawing the eye to exactly which
-  // corner "the code" means, right when that code first becomes
-  // visible, before the player's own first move (which flips gamePhase
-  // to 'hinted' and stops it). A gentle few-second breathing cycle, not
-  // a fast attention-grabbing flash -- tuned by watching it, not
-  // eyeballed from a single screenshot (a pulse is inherently a
-  // multi-frame thing to judge).
+  // The cheat sheet's own vertex pulse (see drawGameBoard,
+  // isCheatsheetPulseActive): the one vertex wearing the code that
+  // actually matches the current secret (hintedGroup) slowly grows and
+  // shrinks, real-time, for as long as the current round is still
+  // untouched -- drawing the eye to exactly which corner "the code"
+  // means, right when that code first becomes visible, before the
+  // player's own first move that round. A gentle few-second breathing
+  // cycle (not a fast attention-grabbing flash), but a *big* swing --
+  // an initial +-40% amplitude was reported directly as still too
+  // subtle to reliably notice; +-75% is the current, much more obvious
+  // value. Tuned by watching it, not eyeballed from a single
+  // screenshot (a pulse is inherently a multi-frame thing to judge).
   const CHEATSHEET_PULSE_PERIOD_S = 3.5;
   const CHEATSHEET_PULSE_SPEED = (2 * Math.PI) / CHEATSHEET_PULSE_PERIOD_S;
-  const CHEATSHEET_PULSE_AMPLITUDE = 0.4; // +-40% of the vertex dot's own base radius
+  const CHEATSHEET_PULSE_AMPLITUDE = 0.75; // +-75% of the vertex dot's own base radius
 
   function randomInt(n) {
     return Math.floor(Math.random() * n);
@@ -2281,7 +2283,7 @@
   // cube of whatever color it's given, always at its one true size
   // (TETRA_CUBE_HALF): no more flat-to-cube thickening, since there's no
   // separate reveal moment left to thicken into.
-  function drawTetraCube(doorIndex, cx, cy, scale, alpha, angleX, angleY, color) {
+  function drawTetraCube(doorIndex, cx, cy, scale, alpha, angleX, angleY, color, fullBright) {
     const center = DOOR_LOCAL_3D[doorIndex];
     const cornersRot = CUBE_CORNERS_UNIT.map((u) =>
       rotatePoint3D(
@@ -2312,13 +2314,25 @@
       .sort((a, b) => a.avgDepth - b.avgDepth) // painter's algorithm within this cube
       .forEach((f) => {
         const pts = f.idxs.map((i) => cornersProj[i]);
-        const brightness = 0.5 + 0.5 * f.nz;
+        // `fullBright` (the selected-door highlight only) skips the
+        // usual per-face directional dimming and the flat *0.85
+        // dampening entirely -- every face renders at the color's own
+        // full strength, regardless of which way it happens to be
+        // facing. Reported directly: even white (the brightest color
+        // available) still read as "hard to see" once the normal
+        // lighting model dimmed it on most faces most of the time, the
+        // same shading that makes an ordinary neutral-gray cube read as
+        // gray in the first place -- the whole point of highlighting a
+        // door is for it to *not* look like it's sitting under the same
+        // lighting as every other cube.
+        const brightness = fullBright ? 1 : 0.5 + 0.5 * f.nz;
+        const alphaMult = fullBright ? 1 : 0.85;
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(pts[0].x, pts[0].y);
         for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
         ctx.closePath();
-        ctx.fillStyle = rgbCss(color, alpha * brightness * 0.85);
+        ctx.fillStyle = rgbCss(color, alpha * brightness * alphaMult);
         ctx.fill();
         ctx.strokeStyle = rgbCss(NEUTRAL, alpha * 0.4);
         ctx.lineWidth = 1;
@@ -2375,6 +2389,22 @@
     });
   }
 
+  // True for as long as the current round's own hinted vertex still
+  // deserves the cheat-sheet pulse's attention: the cheat sheet is
+  // known, *and* the player hasn't touched this round yet at all
+  // (nothing selected). Deliberately keyed to `selectedDoors.size`, not
+  // `gamePhase === 'cheatsheet'` (an earlier version): `gamePhase` only
+  // ever passes through `'cheatsheet'` once per *session* -- every
+  // later round, reached via "Play again," goes straight to `'hinted'`
+  // and stays there, so a `gamePhase` check made the pulse fire on the
+  // very first reveal and never again, reported directly as it
+  // "apparently stops doing it" after that first round. Checking
+  // `selectedDoors` instead re-arms naturally every time `resetRound()`
+  // clears it -- at every new round, not just the first.
+  function isCheatsheetPulseActive() {
+    return cheatsheetRevealed && selectedDoors.size === 0;
+  }
+
   // The board itself: wireframe edges, the 4 vertices (dot always; the
   // binary code label only once cheatsheetRevealed), and the 6 door-
   // cubes, all read from the shape's own live tetraRotX/Y via
@@ -2413,14 +2443,14 @@
         const p = item.pos;
         const dotR = Math.max(gameUnit * 0.05, 4);
         // The cheat sheet's own intro pulse (see CHEATSHEET_PULSE_SPEED
-        // above): only the one vertex actually matching the current
-        // secret (hintedGroup), only during 'cheatsheet' -- everything
-        // else about this vertex (its label's own gap, the wireframe
-        // edges meeting it) still reads off the *unpulsed* dotR, so
-        // only the glow itself visibly breathes, not the label's own
-        // position.
+        // above, and isCheatsheetPulseActive()): only the one vertex
+        // actually matching the current secret (hintedGroup), only
+        // while the current round is still untouched -- everything else
+        // about this vertex (its label's own gap, the wireframe edges
+        // meeting it) still reads off the *unpulsed* dotR, so only the
+        // glow itself visibly breathes, not the label's own position.
         let glowR = dotR;
-        if (gamePhase === "cheatsheet" && item.index === hintedGroup) {
+        if (isCheatsheetPulseActive() && item.index === hintedGroup) {
           const phase = (lastFrameNowMs / 1000) * CHEATSHEET_PULSE_SPEED;
           glowR = dotR * (1 + CHEATSHEET_PULSE_AMPLITUDE * Math.sin(phase));
         }
@@ -2447,6 +2477,7 @@
         let cubeAlpha = alpha;
         let wordLabel = null;
         let wordColor = null;
+        let fullBright = false;
 
         // Illustrative highlight, checked first -- only ever true
         // before playArrive, when selectedDoors/openedDoors are still
@@ -2468,8 +2499,10 @@
 
           if (isCar) color = CORRECT_COLOR;
           else if (isZonk) color = CATASTROPHIC_COLOR;
-          else if (selected) color = SELECTED_DOOR_COLOR;
-          else if (opened) cubeAlpha = alpha * 0.4; // opened, empty -- dims, doesn't vanish
+          else if (selected) {
+            color = SELECTED_DOOR_COLOR;
+            fullBright = true;
+          } else if (opened) cubeAlpha = alpha * 0.4; // opened, empty -- dims, doesn't vanish
           // Car/zonk reveal on open: color alone (green/red), no
           // "correct"/"catastrophic" text label, and no separate
           // "selected" ring either (an earlier, flat-square version of
@@ -2480,7 +2513,7 @@
           // says which door was which once a round resolves.
         }
 
-        drawTetraCube(i, c.x, c.y, scale, cubeAlpha, tetraRotX, tetraRotY, color);
+        drawTetraCube(i, c.x, c.y, scale, cubeAlpha, tetraRotX, tetraRotY, color, fullBright);
         if (wordLabel) drawDoorWordLabel(i, wordLabel, wordColor, alpha);
       }
     }
@@ -2827,9 +2860,9 @@
     // be OR'd into the render-or-not decision alongside the usual
     // t-changed check. The cheat-sheet vertex pulse is the same idea,
     // simpler: no settle/snap semantics of its own, just "keep
-    // repainting every frame for as long as gamePhase is 'cheatsheet'."
+    // repainting every frame for as long as isCheatsheetPulseActive()."
     const spinChanged = updateTetraAutoSpin(now, t);
-    const pulseActive = gamePhase === "cheatsheet";
+    const pulseActive = isCheatsheetPulseActive();
     if (t !== lastT || spinChanged || pulseActive) render(t);
     updateLegend(t);
     requestAnimationFrame(frame);

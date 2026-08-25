@@ -615,20 +615,45 @@ room this has to fit in on this piece's tightest viewports.
 `syncGameControls()` no longer touches this button at all; it's fully
 owned by `layoutPlayAgainButton`.
 
-### Selected-door color: white, not blue
+**Font-family bug, caught right after**: `.game-btn` sets `font-family:
+inherit`, which worked fine back when this button lived inside
+`.game-controls` (which sets the real font list) — once moved to be a
+sibling of `.game-controls` instead (a direct child of `.pinned`),
+inheriting from *this* element's own ancestor chain fell through to
+the browser's plain default font, reported directly as looking
+mismatched from every other piece of text on the page. Fixed by
+setting `font-family` explicitly on `.play-again-floating` itself (the
+same list `.game-controls`/`.legend` already use) rather than relying
+on inheriting it from a specific parent — the general lesson: moving an
+element to a new place in the DOM tree can silently change what
+`inherit` resolves to for *any* property that was relying on a specific
+ancestor, not just layout-related ones.
+
+### Selected-door color: bright white, not blue, and not shaded either
 
 A selected-but-unopened door used to reuse `CANDIDATE_COLOR` (the same
 blue as the wireframe edges and phase 1's own "candidate kernel").
 Reported directly as reading too close to the doors' own plain neutral
 gray once a cube's own per-face shading dims it — confusable with an
-ordinary, unselected door. Now `SELECTED_DOOR_COLOR` (`#ffffff`, its
-own fresh constant, not a `CANDIDATE_COLOR` reuse) — a consistently
-~10–14% brighter fill than `NEUTRAL_HEX` at *every* shading level (the
-two colors' own ratio is shading-independent, since the same
-brightness multiplier applies to both), not just at one arbitrarily
-brighter face. `CANDIDATE_COLOR` itself is untouched everywhere else
-(the wireframe edges, phase 1's diagrams) — this was a *narrow*
-substitution, only inside `drawGameBoard`'s own `selected` branch.
+ordinary, unselected door. First fix: a dedicated `SELECTED_DOOR_COLOR`
+(`#ffffff`), still put through the *same* per-face directional dimming
+(`drawTetraCube`'s own `brightness = 0.5 + 0.5*f.nz`, then `*0.85`)
+every other cube gets. **Still reported as hard to see** — even white,
+the brightest color available, reads as dim/gray-ish on most faces most
+of the time under that lighting model, which is exactly what makes an
+*ordinary* gray cube look gray in the first place.
+
+Real fix: `drawTetraCube` takes a `fullBright` flag (set only for the
+selected-door branch in `drawGameBoard`) that skips the directional
+dimming *and* the flat `*0.85` dampening entirely — every face of a
+selected door renders at the color's own full strength, regardless of
+which way it's currently facing. The point of highlighting a door is
+for it to visibly *not* be sitting under the same lighting as every
+other cube; a highlight that's still subject to the same lighting model
+as everything else was never going to look highlighted. `CANDIDATE_COLOR`
+itself, and the normal per-face lighting, are both untouched everywhere
+else (the wireframe edges, phase 1's diagrams, every other door state)
+— `fullBright` is a narrow, single-branch override.
 
 ### Auto-spin rotation axis: a wobble, not a flat pin — and what it broke
 
@@ -658,21 +683,32 @@ one instant; a sweep confirms all of them.
 ### Cheat-sheet vertex pulse — the *third* wall-clock exception
 
 The one vertex actually matching the current secret (`hintedGroup`)
-slowly grows and shrinks, real-time, for as long as `gamePhase ===
-'cheatsheet'` — drawing the eye to exactly which corner "the code"
+slowly grows and shrinks, real-time, for as long as the current round
+is still untouched — drawing the eye to exactly which corner "the code"
 means, right when the code first becomes visible, before the player's
-own first move (which flips `gamePhase` to `'hinted'` and stops it for
-good, that round). Requested directly, in those terms — "a sphere that
-slowly increases/decreases in radius" — where "sphere" means the
-vertex's own existing glowing dot (`drawGlow`, a radial-gradient glow
-that already reads as a small glowing orb), not a new 3D primitive.
+own first move that round. Requested directly, in those terms — "a
+sphere that slowly increases/decreases in radius" — where "sphere"
+means the vertex's own existing glowing dot (`drawGlow`, a radial-
+gradient glow that already reads as a small glowing orb), not a new 3D
+primitive.
 
+- `isCheatsheetPulseActive()` → `cheatsheetRevealed && selectedDoors.size
+  === 0`. **Not** `gamePhase === 'cheatsheet'` (the first version) —
+  `gamePhase` only ever passes through `'cheatsheet'` once per
+  *session*; every later round (reached via "Play again," which always
+  re-`randomizeSecret()`s) goes straight to `'hinted'` and stays there,
+  so that check fired the pulse once, on the very first reveal, and
+  never again — reported directly as "after the first
+  growing/shrinking... it apparently stops doing it." Keying off
+  `selectedDoors` instead re-arms naturally every time `resetRound()`
+  clears it, at the start of *every* round, not just the first.
 - `CHEATSHEET_PULSE_PERIOD_S` (3.5s), `CHEATSHEET_PULSE_SPEED`
-  (`2*PI / period`), `CHEATSHEET_PULSE_AMPLITUDE` (`0.4`, i.e. the
-  glow's radius swings ±40% of its own base `dotR`). A gentle multi-
-  second breathing cycle, deliberately not a fast flash — a pulse is
-  inherently a multi-frame thing to judge, so this was tuned by
-  watching it over several cycles, not from a single screenshot.
+  (`2*PI / period`), `CHEATSHEET_PULSE_AMPLITUDE`. A gentle multi-second
+  breathing cycle, deliberately not a fast flash — but a *big* swing:
+  an initial ±40% amplitude was reported directly as still too subtle
+  to reliably notice; **±75%** is the current value. Tuned by watching
+  it over several cycles, not from a single screenshot (a pulse is
+  inherently a multi-frame thing to judge).
 - Reads real time via `lastFrameNowMs` (set at the top of `frame(now)`,
   every frame) rather than having a parameter threaded through
   `drawScene`/`drawGameScene`/`drawGameBoard` — the same "module-level
@@ -688,11 +724,11 @@ that already reads as a small glowing orb), not a new 3D primitive.
   deliberate effect; the glow alone breathing, with the label held
   perfectly still, was the version that actually looked intentional.
 - `frame()`'s own render-or-not check gained a third OR clause —
-  `gamePhase === 'cheatsheet'` — forcing a repaint every frame for as
+  `isCheatsheetPulseActive()` — forcing a repaint every frame for as
   long as that's true, parallel to `updateTetraAutoSpin`'s own return
   value. No settle/snap semantics of its own to get right here (unlike
   the auto-spin): the pulse simply stops changing, wherever it happens
-  to be in its own cycle, the instant `gamePhase` moves on — there's no
+  to be in its own cycle, the instant a door gets selected — there's no
   "must end at a specific canonical value" fact to land on exactly.
 - **Verified by sampling brightness at a fixed screen offset from each
   of the 4 vertices across ~4 real seconds**, not just by eyeballing a
@@ -701,7 +737,11 @@ that already reads as a small glowing orb), not a new 3D primitive.
   confirm or refute it on its own): the hinted vertex's own sample swings
   by a large margin (hundreds, in raw summed-RGB terms) while the other
   three stay *exactly* constant, confirming both that the right vertex
-  pulses and that no other vertex does.
+  pulses and that no other vertex does. Re-checked across *two*
+  consecutive rounds (not just one) specifically to catch the
+  re-triggering bug above — the first version's own test suite only
+  ever checked a single round, which is exactly why that bug shipped
+  initially undetected.
 
 ## Things tried and explicitly reverted (don't redo these without a new reason)
 
