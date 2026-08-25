@@ -2291,6 +2291,13 @@
 
   const TETRA_SCALE_MULT = 0.62; // gameUnit -> pixels-per-local-3D-unit
   const TETRA_CUBE_HALF = 0.16; // in the same local units as DOOR_LOCAL_3D
+  // How much of `nz`'s own range, right above the back-face-culling
+  // threshold (0), a cube face spends fading out (see drawTetraCube's
+  // own `edgeFade`) rather than popping instantly out of existence.
+  // Small enough that it's not noticeable as its own separate "shrink"
+  // effect during ordinary rotation -- just enough to turn one abrupt
+  // frame into a handful of fading ones.
+  const TETRA_FACE_EDGE_FADE = 0.15;
 
   // A consistent "how big does this shape look" anchor, independent of
   // its current rotation -- for aliceSignalPos/tallyPos below, which need
@@ -2375,14 +2382,28 @@
         // selected door clearly identifiable even at the shape's own
         // farthest point.
         const faceFog = depthFogMult(f.avgDepth);
+        // Fades a face out smoothly as its own `nz` approaches the
+        // back-face-culling threshold (0) from above, instead of the
+        // face popping instantly from ~50% brightness to "not drawn at
+        // all" (background showing through) the moment `nz` actually
+        // crosses it -- reported directly as looking like "an if
+        // statement rather than a physical sim," which is exactly what
+        // the un-faded version was: `filter((f) => f.nz > 0)` is still
+        // the real cutoff (unchanged), but this ramps the very last
+        // sliver before it down to 0 first, so by the time a face is
+        // actually removed from the draw list it's already invisible.
+        // `smoothstep(0, TETRA_FACE_EDGE_FADE, f.nz)` reaches exactly 0
+        // at `nz = 0` (checked numerically first) -- continuous with
+        // the filtered-out state on the other side, not just close to it.
+        const edgeFade = smoothstep(0, TETRA_FACE_EDGE_FADE, f.nz);
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(pts[0].x, pts[0].y);
         for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
         ctx.closePath();
-        ctx.fillStyle = rgbCss(color, alpha * brightness * alphaMult * faceFog);
+        ctx.fillStyle = rgbCss(color, alpha * brightness * alphaMult * faceFog * edgeFade);
         ctx.fill();
-        ctx.strokeStyle = rgbCss(NEUTRAL, alpha * 0.4 * faceFog);
+        ctx.strokeStyle = rgbCss(NEUTRAL, alpha * 0.4 * faceFog * edgeFade);
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();

@@ -918,6 +918,38 @@ neither implemented yet, both bigger/riskier changes than these two):
   drag angles (where the effect is the whole point) without breaking
   the aligned pose's own "looks flat at rest" read.
 
+### Cube faces popping in/out abruptly — a hard cull, not a fade
+
+Reported directly, in almost exactly these terms: motion looked
+"jerky" as faces suddenly went from illuminated to dark, "more like an
+if statement than a physical sim." That's a precise diagnosis of the
+actual cause: `drawTetraCube`'s own back-face culling,
+`faces.filter((f) => f.nz > 0)`, is a hard boolean cutoff. A face's own
+brightness (`0.5 + 0.5*f.nz`) is still a substantial ~50% right up
+until `nz` crosses 0 — at which point the face is removed from the
+draw list *entirely*, in one frame, usually revealing the near-black
+background (`BG`) behind it. Confirmed numerically before touching
+anything (this file's own discipline): sweeping `angleY` in tiny
+`0.0003` rad steps across a full rotation, for all 6 faces of all 6
+doors, the *old* formula's worst single-step jump in effective
+visibility was `0.50` — essentially the entire brightness range,
+collapsing in one frame.
+
+Fixed with `TETRA_FACE_EDGE_FADE` (`0.15`) and a new `edgeFade =
+smoothstep(0, TETRA_FACE_EDGE_FADE, f.nz)` multiplier, applied
+alongside `faceFog` to both the fill and stroke alpha. `smoothstep(0,
+X, nz)` reaches *exactly* `0` right at `nz = 0` — the same point the
+`filter` removes the face entirely — so the two states meet
+continuously: a face fades to fully invisible over the last sliver of
+rotation before it's culled, rather than being visible at ~50%
+brightness one frame and gone the next. The `filter` itself is
+unchanged; this doesn't move *when* a face stops being drawn, only
+makes it invisible slightly before that point instead of right at it.
+**Re-verified with the same sweep script that caught the bug**: the
+new formula's worst single-step jump, at the identical angular
+resolution, drops to `0.0018` — a ~283x reduction, confirming the fix
+directly rather than just assuming it worked from the formula alone.
+
 ## Things tried and explicitly reverted (don't redo these without a new reason)
 
 This session went through several rounds of trying to formalize
