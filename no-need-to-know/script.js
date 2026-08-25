@@ -394,6 +394,24 @@
     return lines.length * lineHeight;
   }
 
+  // Total on-screen width of "hashed into one of 4 bins" plus its own
+  // inline color swatches, as one row -- pulled out of drawHashCaption
+  // itself so drawCaptions (below) can measure it too, to decide how far
+  // left this caption and "one of many candidate kernels" both need to
+  // sit before either one is drawn.
+  function hashCaptionWidth() {
+    const size = baseFontSize() * 1.25;
+    ctx.save();
+    ctx.font = `${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`;
+    const textWidth = ctx.measureText("hashed into one of 4 bins").width;
+    ctx.restore();
+    const gap = pitch * 0.2;
+    const spacing = pitch * 0.24;
+    const swatchR = pitch * 0.065;
+    const swatchesWidth = spacing * (PALETTE.length - 1) + swatchR * 2;
+    return textWidth + gap + swatchesWidth;
+  }
+
   // "hashed into one of 4 bins" followed inline by the 4 hues themselves,
   // as one horizontally-centered row -- text and swatches side by side,
   // not stacked, so "a bin is a color" reads as a single statement. Text
@@ -644,8 +662,28 @@
   function drawCaptions(t, rect) {
     // Landing exactly in the gap between grid columns 4 and 5 (rather than
     // an arbitrary fraction of the board) so the caption reads as centered
-    // between the circles beneath it, not just "somewhere top-right".
-    const topX = board.bx + 5 * pitch;
+    // between the circles beneath it, not just "somewhere top-right" --
+    // but only when there's actually room to its right. On narrow/mobile
+    // viewports (`board.bx = 0`, no letterboxing margin to spare -- see
+    // `computeBoard`), that preferred position ran the wider of these two
+    // captions right off the canvas's own right edge -- measured
+    // directly, not eyeballed: ~22-34px of real crop at 390x844/360x740,
+    // once the font-size floor (`baseFontSize`) made this text as large
+    // as it needed to be to stay legible there. Clamped below to
+    // whatever the *actual measured width* of the wider of the two
+    // captions allows, given the canvas's own real width -- self-
+    // corrects at any viewport, rather than a hand-picked "safe" value
+    // for only the sizes actually tested.
+    const preferredTopX = board.bx + 5 * pitch;
+    const cw = canvas.width / dpr;
+    ctx.save();
+    ctx.font = `${baseFontSize() * 1.25}px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`;
+    const kernelsHalfWidth = ctx.measureText("one of many candidate kernels").width / 2;
+    ctx.restore();
+    const hashHalfWidth = hashCaptionWidth() / 2;
+    const maxHalfWidth = Math.max(kernelsHalfWidth, hashHalfWidth);
+    const rightMargin = pitch * 0.15;
+    const topX = Math.min(preferredTopX, cw - maxHalfWidth - rightMargin);
     const topY = board.by + board.bh * 0.2;
 
     drawLabel(

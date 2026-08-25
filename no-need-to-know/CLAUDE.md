@@ -235,6 +235,24 @@ recur in a *third* piece someday:
   confirmed `pinned.style.height` and the canvas's own drawing-buffer
   dimensions both updated within roughly one frame anyway, proving the
   per-frame polling (not the event listener) is what actually caught it.
+- **The `baseFontSize` fix above had its own side effect, caught right
+  after**: `drawCaptions`'s two top-right captions ("one of many
+  candidate kernels", "hashed into one of 4 bins" + its own inline color
+  swatches) both used a fixed `board.bx + 5 * pitch` horizontal center,
+  which was fine when the text was tiny (the bug just fixed) but ran
+  the wider of the two right off the canvas's own right edge once the
+  text was legible-sized — measured directly: ~22-34px of real crop at
+  390×844/360×740 (narrow viewports have `board.bx = 0`, no letterboxing
+  margin to absorb the overflow the way wide viewports do). Fixed by
+  measuring both captions' actual widths (`hashCaptionWidth()`, pulled
+  out of `drawHashCaption` so `drawCaptions` can call it too) and
+  clamping the shared center-x to whatever the canvas's own real width
+  allows, rather than picking a new fixed multiplier that would just be
+  a *different* hand-picked guess, liable to break again the next time
+  this text or the font-size formula changes. Confirmed directly (not
+  just re-eyeballed): the clamp is a no-op at 900×700 (unchanged,
+  ~180-200px of margin already), and produces a small positive margin
+  (~8-14px) rather than negative (crop) at both narrow viewports.
 
 ## If you're picking this up fresh
 
