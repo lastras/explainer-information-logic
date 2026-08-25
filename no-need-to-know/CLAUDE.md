@@ -190,6 +190,52 @@ anywhere discoverable — if you need one, write a fresh one (see
 Puppeteer-script pattern; adapt it, don't copy its game/tetrahedron-specific
 checks).
 
+## Bugs found and fixed (both already fixed once in `less-is-more/`, ported here)
+
+This piece had been dormant since its initial add (see "Repo / remote
+situation" above), so it never received two general fixes `less-is-more/`
+picked up during its own later, active-development phase. Both were
+reported directly by re-visiting this piece after a long gap, in almost
+exactly the same terms `less-is-more/` had originally been reported in —
+worth knowing both symptom and fix, since the same root causes could
+recur in a *third* piece someday:
+
+- **Label text too small, especially on narrow/mobile viewports.** Every
+  in-canvas label/caption size was a flat `pitch * 0.16`, with no floor —
+  `pitch = board.bw / COLS_VISIBLE`, so on a narrow viewport (where
+  `board.bw` itself shrinks) this came out to single-digit px (measured
+  directly: ~8-9px at 390×844 and 360×740, vs. ~12px at 900×700 — none of
+  them generous, the narrow ones genuinely illegible). Fixed with a
+  `baseFontSize()` helper (`Math.max(pitch * 0.16, LABEL_BASE_MIN_PX)`,
+  `LABEL_BASE_MIN_PX = 16`) — the exact same floor value
+  `less-is-more/script.js` already uses for the same reason — and routed
+  all four call sites (`drawLabel`, `drawHashCaption`, the intro
+  statement's own size, `drawEquivalentStatements`'s own size) through it
+  instead of the bare `pitch * 0.16` formula directly.
+- **The picture visibly stretches ("elongates") while scrolling on
+  mobile.** `.pinned`'s CSS height (`100vh`) and `resize()`'s own
+  `ch = window.innerHeight` can genuinely diverge *during a scroll* on
+  mobile Safari/Chrome, because the browser's address bar shows/hides in
+  response to scrolling and `100vh` tracks the browser's *largest*
+  possible viewport (address bar hidden) while `window.innerHeight`
+  tracks whatever the viewport actually is *right now* — exactly while
+  scrolling is happening. When they disagree, the canvas's own CSS box
+  (100% of `.pinned`) ends up a different size than the drawing buffer
+  `resize()` just computed, and the browser stretches the rendered pixels
+  to fit. Fixed the same two-part way `less-is-more/` was: (1) `resize()`
+  now sets `pinned.style.height = \`${ch}px\`` explicitly, in pixels,
+  from the same `ch` the drawing buffer uses, locking the two together
+  regardless of what `100vh` is doing; (2) `frame()` compares
+  `window.innerHeight` against its own last-known value on *every* frame
+  (not just the `'resize'` event listener), since the address bar's
+  show/hide is exactly the case where a delayed or missed `'resize'`
+  event is most likely. **Verified directly, not just patched and
+  assumed**: faked a `window.innerHeight` change via
+  `Object.defineProperty` with *no* `'resize'` event dispatched at all —
+  confirmed `pinned.style.height` and the canvas's own drawing-buffer
+  dimensions both updated within roughly one frame anyway, proving the
+  per-frame polling (not the event listener) is what actually caught it.
+
 ## If you're picking this up fresh
 
 1. Diff the IBM-repo copy against the public-repo copy first (see "Repo /

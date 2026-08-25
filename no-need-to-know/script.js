@@ -219,6 +219,7 @@
 
   // ---- Canvas / DOM setup --------------------------------------------------
   const track = document.getElementById("scrollTrack");
+  const pinned = track.querySelector(".pinned");
   const canvas = document.getElementById("scene");
   const ctx = canvas.getContext("2d");
   const legendHeadingEl = document.getElementById("legendHeading");
@@ -268,6 +269,22 @@
     dpr = window.devicePixelRatio || 1;
     const cw = track.clientWidth || window.innerWidth;
     const ch = window.innerHeight;
+    // `.pinned`'s CSS height (100vh, in style.css) and `ch` here
+    // (window.innerHeight) are supposed to be the same number, but on
+    // mobile Safari/Chrome they can genuinely diverge *during a scroll*:
+    // `100vh` is pinned to the browser's largest possible viewport
+    // (address bar hidden), while `window.innerHeight` tracks whatever
+    // the *current* viewport actually is (address bar still showing, or
+    // mid-animation into/out of view) -- and the address bar's own
+    // show/hide is triggered by scrolling, exactly when this matters
+    // most. When they disagree, the canvas's own CSS box (100% of
+    // `.pinned`) ends up a different size than the drawing buffer just
+    // computed for `ch` below, and the browser stretches the rendered
+    // pixels to fit -- reported directly as "the pictures get elongated"
+    // while scrolling on mobile. Setting `.pinned`'s height explicitly,
+    // in pixels, from the same `ch` used for the drawing buffer keeps
+    // the two locked together regardless of what `100vh` is doing.
+    pinned.style.height = `${ch}px`;
     canvas.width = Math.round(cw * dpr);
     canvas.height = Math.round(ch * dpr);
     board = computeBoard(cw, ch);
@@ -322,6 +339,18 @@
     if (progress < 1) drawGlow(tipX, tipY, pitch * 0.05, SEED_GLOW, alpha);
   }
 
+  // All label/caption text sizes were a flat `pitch * 0.16`, with no
+  // floor -- on a narrow mobile viewport (where `pitch` itself is small,
+  // since `board.bw`/`COLS_VISIBLE` shrinks with viewport width), that
+  // came out to single-digit px, reported directly as "the text is
+  // small." Matches the fix `less-is-more` already needed for the same
+  // reason: a fixed minimum, independent of how small `pitch` gets, so
+  // every label stays legible even at the narrowest supported width.
+  const LABEL_BASE_MIN_PX = 16;
+  function baseFontSize() {
+    return Math.max(pitch * 0.16, LABEL_BASE_MIN_PX);
+  }
+
   // Draws a label at (x,y). If opts.maxWidth is given, greedily word-wraps
   // onto multiple lines instead of overflowing. Returns the total height
   // drawn, so callers can stack more content underneath (e.g. color
@@ -329,7 +358,7 @@
   function drawLabel(text, x, y, alpha, align, opts) {
     if (alpha <= 0) return 0;
     opts = opts || {};
-    const size = pitch * 0.16 * (opts.sizeMult || 1);
+    const size = baseFontSize() * (opts.sizeMult || 1);
     const lineHeight = size * 1.35;
     ctx.save();
     ctx.font = `${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`;
@@ -374,7 +403,7 @@
   function drawHashCaption(centerX, centerY, alpha) {
     if (alpha <= 0) return;
     const text = "hashed into one of 4 bins";
-    const size = pitch * 0.16 * 1.25;
+    const size = baseFontSize() * 1.25;
 
     ctx.save();
     ctx.font = `${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`;
@@ -431,7 +460,7 @@
     // middle, below it -- rather than from a separate node circle: one
     // circle for the statement and another for the kernel read as more
     // shapes than the diagram needs.
-    const stmtSize = pitch * 0.16;
+    const stmtSize = baseFontSize();
     ctx.save();
     ctx.font = `${stmtSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`;
     const stmtWidth = ctx.measureText(ALICE_STATEMENT).width;
@@ -677,7 +706,7 @@
     const revealP = smoothstep(0.93, 0.97, t);
     if (revealP <= 0) return;
     const kernel = seedPos();
-    const size = pitch * 0.16;
+    const size = baseFontSize();
 
     ctx.save();
     ctx.font = `${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif`;
@@ -730,7 +759,19 @@
 
   // ---- Main loop: recompute t every frame so breathing keeps running even
   // when scroll is idle, and scrubbing up/down is always smooth. --------------
+  let lastInnerHeight = window.innerHeight;
   function frame() {
+    // A direct check, not just the 'resize' listener below: on mobile,
+    // the browser's own address bar shows/hides *in response to*
+    // scrolling, which is exactly when a missed or delayed 'resize'
+    // event would be most visible (as the "elongation" resize() itself
+    // now guards against, once it actually runs). Comparing against the
+    // last known height every frame is negligible cost and catches the
+    // change even if the event itself doesn't fire promptly.
+    if (window.innerHeight !== lastInnerHeight) {
+      lastInnerHeight = window.innerHeight;
+      resize();
+    }
     const t = computeT();
     render(t);
     updateLegend(t);
