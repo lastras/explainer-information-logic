@@ -481,6 +481,15 @@
   // ordinary safe/danger pair, not drawn from the kernel palette above.
   const CORRECT_COLOR_HEX = "#7be07f";
   const CATASTROPHIC_COLOR_HEX = "#ff6a6a";
+  // A selected-but-not-yet-opened door's own color -- deliberately its
+  // own fresh constant, not a reuse of CANDIDATE_COLOR (the blue used
+  // for the wireframe edges and for phase 1's own "candidate kernel"):
+  // against the doors' own neutral gray (NEUTRAL_HEX, a light
+  // near-white already), CANDIDATE_COLOR's blue reads too close to
+  // plain gray once a cube's own per-face shading dims it, reported
+  // directly as confusable with an ordinary, unselected door. Plain
+  // white contrasts clearly against gray at every shading level.
+  const SELECTED_DOOR_COLOR_HEX = "#ffffff";
 
   // ---- Board -----------------------------------------------------------------
   const BOARD_ASPECT = 7 / 9;
@@ -541,6 +550,7 @@
   const CHART_Q_COLOR = hexToRgb(CHART_Q_COLOR_HEX);
   const CORRECT_COLOR = hexToRgb(CORRECT_COLOR_HEX);
   const CATASTROPHIC_COLOR = hexToRgb(CATASTROPHIC_COLOR_HEX);
+  const SELECTED_DOOR_COLOR = hexToRgb(SELECTED_DOOR_COLOR_HEX);
 
   function rgbCss(c, alpha) {
     return `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${alpha})`;
@@ -966,6 +976,14 @@
   const openedDoors = new Set();
   let roundResolved = false;
   let lastRoundWin = null; // null until a round resolves; then true/false -- drives the win/loss banner
+  // null until a round resolves; then 'win' | 'dud' | 'missed' -- the
+  // *specific* reason behind lastRoundWin, so the banner can say which
+  // of the three concrete outcomes actually happened (found the prize;
+  // found the dud; found neither) instead of only win/lose. 'dud' takes
+  // priority over 'missed' when both the prize and the dud were opened
+  // in the same round -- opening the dud is what actually lost it,
+  // matching "never open the one with the dud" from the walk-through.
+  let lastRoundReason = null;
   let cheatsheetRevealed = false;
   let gamePhase = "blind"; // 'blind' | 'cheatsheet' | 'hinted'
   let winTally = 0;
@@ -988,8 +1006,10 @@
   // -- see that constant's own note above for why the idle pose is
   // deliberately the one that looks flat, not an arbitrary "reads as
   // 3D immediately" pose -- which is also the auto-spin's own start
-  // (and, since it holds angleX fixed and rotation in angleY alone is
-  // exactly periodic with period 2*PI, its own eventual stop) angle.
+  // (and, since tetraRotX is a deterministic function of tetraRotY
+  // during the spin that returns to exactly TETRA_ALIGN_X every full
+  // 2*PI revolution -- see TETRA_AUTOSPIN_TILT's own note -- its own
+  // eventual stop) angle.
   let tetraRotX = TETRA_ALIGN_X;
   let tetraRotY = TETRA_ALIGN_Y;
   let tetraDragging = false;
@@ -1041,6 +1061,18 @@
   // watching it (screenshotted at known real-time intervals, per this
   // file's own verification discipline), not eyeballed live.
   const TETRA_AUTOSPIN_SPEED = (2 * Math.PI) / 24;
+  // How far tetraRotX wobbles away from TETRA_ALIGN_X during the spin --
+  // holding it perfectly fixed (an earlier version) made the spin read
+  // as a flat, uninteresting merry-go-round, rotating around what looks
+  // like a single near-vertical axis; reported directly. Tied to
+  // tetraRotY's own progress (see updateTetraAutoSpin) via a plain sine,
+  // not a second independent time-driven variable: sin(0) = 0 at every
+  // exact multiple of a full revolution, i.e. at *exactly* the same
+  // instants tetraRotY's own crossing already identifies as "the
+  // hexagon view is back" -- so tetraRotX is *always* back at
+  // TETRA_ALIGN_X too, right when it needs to be, with no separate
+  // tracking and no risk of the two drifting out of sync.
+  const TETRA_AUTOSPIN_TILT = (10 * Math.PI) / 180; // ~10 degrees
 
   function randomInt(n) {
     return Math.floor(Math.random() * n);
@@ -1081,6 +1113,7 @@
   // not a three-way split that softens it.
   function recordOutcome(foundCar, foundZonk) {
     lastRoundWin = foundCar && !foundZonk;
+    lastRoundReason = lastRoundWin ? "win" : foundZonk ? "dud" : "missed";
     if (lastRoundWin) winTally++;
     else lossTally++;
   }
@@ -1098,6 +1131,7 @@
     openedDoors.clear();
     roundResolved = false;
     lastRoundWin = null;
+    lastRoundReason = null;
     refreshGameUI();
   }
 
@@ -1139,6 +1173,7 @@
     openedDoors.clear();
     roundResolved = false;
     lastRoundWin = null;
+    lastRoundReason = null;
     randomizeSecret();
   }
 
@@ -2268,21 +2303,49 @@
       });
   }
 
-  // A plain word label ("prize"/"dud") above one of the two fixed
-  // illustrative doors -- parallels the vertex code label's own
-  // anchor="bottom"/fixed-screen-space-gap styling just above, but
-  // colored to match the door's own illustrative highlight rather than
-  // the neutral vertex label color. Purely for the pre-playArrive
-  // walk-through cards (see illustrativeHighlightPhase); never used for
-  // the real per-round car/zonk reveal, which relies on color plus the
-  // win/loss banner alone (see drawGameBoard's own note on that).
+  // A plain word label ("prize"/"dud") next to one of the two fixed
+  // illustrative doors -- colored to match the door's own illustrative
+  // highlight. Purely for the pre-playArrive walk-through cards (see
+  // illustrativeHighlightPhase); never used for the real per-round
+  // car/zonk reveal, which relies on color plus the win/loss banner
+  // alone (see drawGameBoard's own note on that).
+  //
+  // Offset *radially outward* from the shape's own projected center
+  // (away from doorBoardPos(i), not a fixed "straight up" screen-space
+  // shift the way the vertex code label uses) -- deliberately different
+  // from that label's own styling, and for a real reason, not just
+  // variety: a fixed "up" offset was verified, by an exhaustive Node
+  // sweep across a full rotation (see this piece's own CLAUDE.md), to
+  // occasionally place the "prize" label almost *exactly* on top of the
+  // dud's own cube (worst case under 1px away, well inside the cube's
+  // own hit-radius) at some rotation angles -- a real mislabeling risk,
+  // not just a cosmetic one, since these two labels exist specifically
+  // to say which door is which. The same sweep confirmed the radial
+  // approach clears the wrong cube by a comfortable, healthy margin
+  // (multiple times the cube's own radius) at every angle checked, not
+  // just the one angle a screenshot happened to catch. This is also why
+  // it has to be checked *before* TETRA_AUTOSPIN_TILT's own rotation
+  // axis change, not just after: the very same failure mode already
+  // existed with the tilt off (angleX pinned), just less easily
+  // stumbled onto by chance -- the tilt only made an existing gap in
+  // this logic more likely to be seen, not the root cause of it.
   function drawDoorWordLabel(i, text, color, alpha) {
     if (alpha <= 0) return;
+    const center = gameToBoard(0, 0);
     const p = doorBoardPos(i);
+    const dx = p.x - center.x;
+    const dy = p.y - center.y;
+    const dist = Math.hypot(dx, dy) || 1;
     const gap = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT * 6.5, 30);
-    drawLabel(text, p.x, p.y - gap, alpha, "center", {
+    const lx = p.x + (dx / dist) * gap;
+    const ly = p.y + (dy / dist) * gap;
+    drawLabel(text, lx, ly, alpha, "center", {
       sizeMult: 0.72,
-      anchor: "bottom",
+      // Growing away from the shape (not back toward it) reads better:
+      // above center, anchor "bottom" (grows further up); at or below
+      // center, the default top-anchor (grows further down) already
+      // does this.
+      anchor: dy < 0 ? "bottom" : undefined,
       color,
       glowColor: color,
     });
@@ -2369,7 +2432,7 @@
 
           if (isCar) color = CORRECT_COLOR;
           else if (isZonk) color = CATASTROPHIC_COLOR;
-          else if (selected) color = CANDIDATE_COLOR;
+          else if (selected) color = SELECTED_DOOR_COLOR;
           else if (opened) cubeAlpha = alpha * 0.4; // opened, empty -- dims, doesn't vanish
           // Car/zonk reveal on open: color alone (green/red), no
           // "correct"/"catastrophic" text label, and no separate
@@ -2390,28 +2453,87 @@
   // Above the shape -- the same anchor aliceSignalPos() itself used to
   // use, before the signal moved below (see that function's own note).
   // Extracted into its own named function so the win/loss banner's
-  // position stays exactly where it always was, independent of
-  // wherever the signal now sits.
+  // position stays independent of wherever the signal now sits. The
+  // 0.36 offset (was the *only* offset here, unchanged, when this was
+  // still just a one-line "You win!!"/"You lose!" banner) grew to 0.46
+  // once the explanatory reason line and the floating "Play again"
+  // button both needed to fit in the same space, above the shape but
+  // below this anchor -- checked directly, by measuring the shape's own
+  // topmost extent and the viewport's own top edge at each of this
+  // file's four standard viewports (900x700, 390x844, 900x600, 360x740):
+  // 900x600 is the tightest on *both* sides at once (the board fills
+  // the full viewport height there), so there's no offset that gives
+  // generous room everywhere -- 0.46 is the largest value that still
+  // clears the viewport's own top edge there with a little margin.
   function resultBannerPos() {
     const c = gameToBoard(0, 0);
-    return { x: c.x, y: c.y - gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.36) };
+    return { x: c.x, y: c.y - gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.46) };
   }
+
+  // The specific reason behind lastRoundReason, in plain language --
+  // one clear verdict ("You win!!"/"You lose!") isn't enough on its own
+  // to say *why*, since there are two different ways to lose (found the
+  // dud; found neither) and the player shouldn't have to go inspect the
+  // board itself to tell which happened.
+  const RESULT_REASON_TEXT = {
+    win: "You found the prize.",
+    dud: "You found the dud.",
+    missed: "You didn't find the prize.",
+  };
 
   // A prominent, plain-language result banner above the board -- "You
   // win!!" or "You lose!", in the same green/red as the car/zonk cubes
-  // themselves. Shown the moment a round resolves: one clear verdict
-  // reads better than a per-door label the player has to go find on the
-  // board.
+  // themselves, plus a smaller explanatory line directly underneath
+  // (RESULT_REASON_TEXT) saying specifically why. Shown the moment a
+  // round resolves: one clear verdict reads better than a per-door
+  // label the player has to go find on the board.
   function drawResultBanner(alpha) {
     if (alpha <= 0 || !roundResolved || lastRoundWin === null) return;
     const sp = resultBannerPos();
     const color = lastRoundWin ? CORRECT_COLOR : CATASTROPHIC_COLOR;
-    drawLabel(lastRoundWin ? "You win!!" : "You lose!", sp.x, sp.y - gameUnit * 0.16, alpha, "center", {
+    const y = sp.y - gameUnit * 0.16;
+    drawLabel(lastRoundWin ? "You win!!" : "You lose!", sp.x, y, alpha, "center", {
       sizeMult: 1.3,
       anchor: "bottom",
       color,
       glowColor: color,
     });
+    drawLabel(RESULT_REASON_TEXT[lastRoundReason], sp.x, y + gameUnit * 0.05, alpha, "center", {
+      sizeMult: 0.75,
+      color,
+      glowColor: color,
+    });
+  }
+
+  // Positions the floating "Play again" button (index.html's own
+  // `.play-again-floating`) directly beneath the win/loss banner --
+  // encourages another round right where the eye already is after a
+  // round resolves, rather than only down in the bottom control row.
+  // Independently recomputes the banner's own rendered height (matching
+  // drawResultBanner's own `y`/gap/sizeMult exactly) rather than reading
+  // it back from that draw call -- the same "recompute, don't couple to
+  // a specific past render" approach layoutTetraGrabZone below already
+  // uses. Horizontal centering is handled by the element's own CSS
+  // (`left: 50%` -- resultBannerPos().x is always exactly the viewport's
+  // own horizontal center, see that function's note); only `top` needs
+  // setting here.
+  function layoutPlayAgainButton(t) {
+    const show = isGameInteractive(t) && roundResolved && lastRoundWin !== null;
+    gameNewRoundBtn.hidden = !show;
+    if (!show) return;
+    const sp = resultBannerPos();
+    const y = sp.y - gameUnit * 0.16;
+    const reasonLineHeight = baseFontSize() * 0.75 * 1.35; // sizeMult, lineHeightMult -- both match drawResultBanner's own reason-line call
+    const bannerBottom = y + gameUnit * 0.05 + reasonLineHeight;
+    // The gap between the reason line and the shape's own topmost point
+    // is genuinely tight on this piece's own tightest viewports (900x600,
+    // 360x740 -- see resultBannerPos()'s own note on why 0.46 is already
+    // as far as that offset can go without clipping the viewport's top
+    // edge instead). A small, fixed gap here, plus the button's own
+    // compact size (.play-again-floating in style.css), is what actually
+    // fits -- checked directly at all four of this file's standard
+    // viewports, not just the common desktop case.
+    gameNewRoundBtn.style.top = `${bannerBottom + gameUnit * 0.06}px`;
   }
 
   // Alice's 2-bit signal, shown directly as its own binary code -- the
@@ -2491,7 +2613,9 @@
     if (!interactive) return;
     gameOpenBtn.disabled = selectedDoors.size === 0 || roundResolved;
     gameRevealBtn.hidden = !(roundResolved && !cheatsheetRevealed);
-    gameNewRoundBtn.hidden = !roundResolved;
+    // gameNewRoundBtn's own hidden/position is handled by
+    // layoutPlayAgainButton instead -- it's no longer part of this
+    // bottom row (see index.html's own note).
   }
 
   function drawScene(tOuter) {
@@ -2566,6 +2690,7 @@
 
     ctx.restore();
     syncGameControls(isGameInteractive(t));
+    layoutPlayAgainButton(t);
   }
 
   // ---- Tetrahedron auto-spin: the one thing in this file driven by
@@ -2622,9 +2747,17 @@
     if (dt <= 0) return false;
 
     tetraRotY += TETRA_AUTOSPIN_SPEED * dt;
+    // Derived, not independently tracked -- see TETRA_AUTOSPIN_TILT's
+    // own note above for why this is always exactly TETRA_ALIGN_X again
+    // at the same instants tetraRotY's own crossing matters.
+    tetraRotX = TETRA_ALIGN_X + TETRA_AUTOSPIN_TILT * Math.sin(tetraRotY - TETRA_ALIGN_Y);
 
     if (tetraAutoSpinFinishing && tetraRotY >= tetraAutoSpinStopAtY) {
-      tetraRotY = TETRA_ALIGN_Y; // snap to the exact canonical aligned angle, not a +2*PI*k copy of it
+      // Snap both to their exact canonical values -- not +2*PI*k/sin-
+      // residual copies of them -- the same "land exactly on it, don't
+      // let it merely converge" precedent tetraRotY alone already set.
+      tetraRotY = TETRA_ALIGN_Y;
+      tetraRotX = TETRA_ALIGN_X;
       tetraAutoSpinActive = false;
       tetraAutoSpinFinishing = false;
       tetraAutoSpinStopAtY = null;

@@ -29,6 +29,13 @@
          native scrolling (with full momentum) keep working everywhere
          else on the page, including everywhere else on the canvas. -->
     <div class="tetra-grab-zone" id="tetraGrabZone" hidden></div>
+    <!-- Floats directly beneath the win/loss banner (drawResultBanner,
+         positioned every render() by layoutPlayAgainButton) -- the CTA
+         to keep playing sits right where the eye already is after a
+         round resolves, not only down in the bottom control row. Same
+         element, same click handler as before; only its own DOM
+         position/CSS changed -- see script.js's own note. -->
+    <button id="gameNewRoundBtn" class="game-btn game-btn-primary play-again-floating" type="button" hidden>Play again</button>
     <!-- Both the legend card and the game's own controls are bottom-
          anchored as *one* flex stack (not two independently absolute-
          positioned elements): when the button row is shown, it should
@@ -44,7 +51,6 @@
       <div class="game-controls" id="gameControls" hidden>
         <button id="gameOpenBtn" class="game-btn game-btn-primary" type="button">Open selected</button>
         <button id="gameRevealBtn" class="game-btn" type="button" hidden>Reveal the cheat sheet</button>
-        <button id="gameNewRoundBtn" class="game-btn" type="button" hidden>Play again</button>
       </div>
       <div class="legend" id="legend">
         <h3 id="legendHeading"></h3>

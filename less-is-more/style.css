@@ -196,3 +196,25 @@ html, body {
   color: #9fe8db;
   border-color: rgba(184, 255, 250, 0.55);
 }
+
+/* Floats directly beneath the win/loss banner, positioned every
+   render() by script.js's own layoutPlayAgainButton -- horizontal
+   centering is the one thing that's always exactly 50% of the viewport
+   (resultBannerPos().x always equals cw/2 -- see that function's own
+   note), so only `top` needs setting from JS, the same `left: 50%` +
+   `transform: translateX(-50%)` pattern .bottom-stack above already
+   uses. No `display` override needed here (unlike .game-controls) --
+   this class never sets `display` itself, so the browser's own default
+   `[hidden] { display: none }` rule is never outranked. */
+.play-again-floating {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Deliberately more compact than the other .game-btn instances --
+     the gap between the reason line and the shape's own topmost point
+     is genuinely tight on this piece's own shortest/narrowest
+     viewports (see layoutPlayAgainButton's own note in script.js); a
+     smaller footprint here is what actually clears it. */
+  font-size: 0.78rem;
+  padding: 0.32rem 0.7rem;
+}

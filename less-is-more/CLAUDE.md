@@ -534,27 +534,120 @@ blind round. Never randomized, never involved in real scoring.
   checks this *before* the real selected/opened/car/zonk logic — only
   ever relevant pre-`playArrive`, since that real state is still empty
   then, so there's nothing for it to shadow.
-- `drawDoorWordLabel(i, text, color, alpha)` — a plain word label above
-  the door, parallel to the vertex code label's own
-  `anchor: "bottom"`/fixed-gap styling. The gap needed retuning larger
-  than a first guess (`gameUnit * DOOR_DOT_RADIUS_MULT * 3.2` overlapped
-  a nearby vertex dot at the default pose, caught by screenshot; settled
-  on `* 6.5`, floor 30px) — the door for `ILLUSTRATIVE_DUD_DOOR`
-  specifically sits close to one of its own two vertices at
-  `TETRA_ALIGN_X/Y`, so this needed more clearance than the vertex
-  label itself does.
+- `drawDoorWordLabel(i, text, color, alpha)` — a plain word label next
+  to the door. **Not** a fixed "straight up" screen-space offset (an
+  earlier version, parallel to the vertex code label's own
+  `anchor: "bottom"`/fixed-gap styling) — offset *radially outward* from
+  the shape's own projected center instead. Changed for a real
+  correctness reason, not styling: once `TETRA_AUTOSPIN_TILT` (below)
+  started wobbling `tetraRotX` too, a dense Node sweep across a full
+  rotation caught the fixed "up" offset placing the "prize" label
+  almost *exactly on top of* the dud's own cube at some angles (worst
+  case under 1px away) — and a second sweep confirmed this had *already*
+  been possible even with the tilt off, just less likely to be seen by
+  chance. The radial approach clears the wrong cube by a healthy,
+  multi-times-the-cube's-own-radius margin at every angle checked (see
+  the auto-spin section below for the sweep script pattern). Gap
+  magnitude (`gameUnit * DOOR_DOT_RADIUS_MULT * 6.5`, floor 30px)
+  unchanged from before, only the *direction* changed.
 
-### Signal moved below the shape; banner stays above
+### Signal below the shape; banner above; a floating "Play again" in between
 
 `aliceSignalPos()` used to double as the win/loss banner's own anchor
 (both "above the shape"). Now that the signal itself lives **below**
 the shape (reads better near the doors it's actually about, and is
 drawn larger — `drawSignalIndicator`'s own `sizeMult`, `0.95 → 1.3`),
-the banner needed its own, separate anchor: `resultBannerPos()`,
-carrying the *exact* old "above the shape" formula unchanged, so the
-banner's own appearance/position is untouched. `tallyPos()` moved
-further below to clear the signal's own larger footprint, without
-overlapping it.
+the banner needed its own, separate anchor: `resultBannerPos()`.
+`tallyPos()` moved further below the signal, to clear its own larger
+footprint without overlapping it.
+
+`resultBannerPos()`'s own offset (`TETRA_BOARD_RADIUS_MULT + X`) has
+grown twice since it was first extracted: `0.36` (matched
+`aliceSignalPos()`'s own old "above" value, unchanged banner
+appearance) → `0.46`, once a second banner line (the win/loss
+*reason*, see below) and a floating "Play again" button both needed
+to fit in the same space, above the shape but below this anchor. This
+is now the tightest vertical squeeze in the whole piece: measured
+directly (not guessed) at all four of this file's own standard
+viewports, `900×600` is tight on *both* sides at once (little headroom
+above the viewport's own top edge, little room below before the
+shape's own topmost point — the board fills the full viewport height
+there), so `0.46` is the largest value that still clears the top edge
+there with a little margin; growing it further would clip the banner
+itself off-screen on that viewport before it would meaningfully help
+anything below it.
+
+### Win/loss banner now says *why*
+
+One clear verdict ("You win!!"/"You lose!") doesn't say *why* on its
+own — there are two different ways to lose (found the dud; found
+neither), and reported directly as something the player shouldn't have
+to go inspect the board itself to figure out. `recordOutcome()` now
+also sets `lastRoundReason` (`'win' | 'dud' | 'missed'` — `'dud'` takes
+priority over `'missed'` when a round somehow finds both, since opening
+the dud is what actually lost it), reset to `null` alongside
+`lastRoundWin` everywhere that already resets that. `drawResultBanner`
+draws a second, smaller line right under the main verdict via a small
+`RESULT_REASON_TEXT` lookup table.
+
+### Floating "Play again" button, right under the banner
+
+Moved out of `.game-controls` (the bottom button row) entirely, into
+its own top-level element (`.play-again-floating` in
+`index.html`/`style.css`) positioned every `render()` by
+`layoutPlayAgainButton(t)` — the same "recompute from scratch every
+render, don't couple to a specific past draw call" pattern
+`layoutTetraGrabZone` already uses, not a value read back from
+`drawResultBanner`'s own draw call. Reported directly: the CTA to keep
+playing belongs right where the eye already is after a round resolves,
+not only down in the bottom row. Horizontal centering is free (`left:
+50%` in CSS — `resultBannerPos().x` is always exactly the viewport's
+own horizontal center); only `top` is set from JS. Deliberately more
+compact than the other `.game-btn` instances (smaller font/padding) —
+see `resultBannerPos()`'s own note above on just how little vertical
+room this has to fit in on this piece's tightest viewports.
+`syncGameControls()` no longer touches this button at all; it's fully
+owned by `layoutPlayAgainButton`.
+
+### Selected-door color: white, not blue
+
+A selected-but-unopened door used to reuse `CANDIDATE_COLOR` (the same
+blue as the wireframe edges and phase 1's own "candidate kernel").
+Reported directly as reading too close to the doors' own plain neutral
+gray once a cube's own per-face shading dims it — confusable with an
+ordinary, unselected door. Now `SELECTED_DOOR_COLOR` (`#ffffff`, its
+own fresh constant, not a `CANDIDATE_COLOR` reuse) — a consistently
+~10–14% brighter fill than `NEUTRAL_HEX` at *every* shading level (the
+two colors' own ratio is shading-independent, since the same
+brightness multiplier applies to both), not just at one arbitrarily
+brighter face. `CANDIDATE_COLOR` itself is untouched everywhere else
+(the wireframe edges, phase 1's diagrams) — this was a *narrow*
+substitution, only inside `drawGameBoard`'s own `selected` branch.
+
+### Auto-spin rotation axis: a wobble, not a flat pin — and what it broke
+
+Holding `tetraRotX` perfectly fixed at `TETRA_ALIGN_X` throughout the
+spin (the original design) read as a flat, uninteresting merry-go-round
+— reported directly. `TETRA_AUTOSPIN_TILT` (~10°) now wobbles
+`tetraRotX` as a *deterministic function of tetraRotY's own progress*:
+`tetraRotX = TETRA_ALIGN_X + TETRA_AUTOSPIN_TILT * Math.sin(tetraRotY -
+TETRA_ALIGN_Y)`. Deliberately tied this way, not a second independently
+time-driven variable: `sin(0) = 0` at every exact multiple of a full
+revolution — i.e. at *exactly* the same instants `tetraRotY`'s own
+crossing already identifies as "the hexagon view is back" — so
+`tetraRotX` is always back at `TETRA_ALIGN_X` too, right when it needs
+to be, with zero risk of the two drifting out of sync. At settle, both
+are still hard-snapped to their exact canonical values (`TETRA_ALIGN_X`/
+`TETRA_ALIGN_Y`), not left to merely converge via the sine.
+
+**This exposed a real, pre-existing bug in `drawDoorWordLabel`**, not a
+new one the tilt introduced: see that function's own note above. Caught
+by an exhaustive Node sweep (not a screenshot that happened to catch a
+bad angle) — the general lesson: *any* screen-space offset computed
+relative to a rotating 3D object should be checked across a full sweep
+of the rotation, in Node, before trusting a handful of screenshots at
+arbitrary instants not to have missed a bad angle. A screenshot confirms
+one instant; a sweep confirms all of them.
 
 ## Things tried and explicitly reverted (don't redo these without a new reason)
 
