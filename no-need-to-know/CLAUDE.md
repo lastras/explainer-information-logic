@@ -253,6 +253,53 @@ recur in a *third* piece someday:
   just re-eyeballed): the clamp is a no-op at 900×700 (unchanged,
   ~180-200px of margin already), and produces a small positive margin
   (~8-14px) rather than negative (crop) at both narrow viewports.
+- **The closing "No need to know" card was too long**, reported directly
+  as needing about two fewer lines (not a drastic rewrite). Original
+  body rendered 5/8/9 lines at 900×700/390×844/360×740 respectively;
+  trimmed (iterated on several candidate rewordings, measuring actual
+  rendered line count via `getBoundingClientRect()` rather than just
+  eyeballing word count, since wrapping depends on pixel width, not
+  word count) to a version rendering 3/6/6 lines — the -2 target at the
+  two more common widths, one extra line saved at the narrowest one
+  tested. Kept a short "as shown here" callback to the two-equivalent-
+  statements reveal that plays at the same moment, rather than cutting
+  it entirely, since an equally-short rewording without it measured no
+  shorter.
+- **The legend card visibly drifts up and occludes the graphic when
+  scrolling *back* on mobile** — a second-order consequence of the
+  elongation fix above, not a new independent bug: `.legend`'s CSS
+  `bottom: 6%` is a percentage of `.pinned`'s height (`ch`), which the
+  elongation fix now deliberately keeps in exact sync with
+  `window.innerHeight` — but on narrow viewports, the *graphic's* own
+  vertical extent is `board.by = (ch - board.bh) / 2`, and `board.bh`
+  is itself **ch-independent** there (`computeBoard`'s narrow branch
+  derives it from `cw` alone). So as `ch` shrinks — exactly what
+  happens when a mobile browser's address bar reappears, which itself
+  tends to happen when scrolling *back* toward the top — the legend's
+  own top edge moves at a *different rate* (initially 1:1 with `ch`,
+  once naively "fixed" to a constant pixel `bottom` instead of a
+  percentage — still wrong, since `top = ch - bottomOffset - height`
+  still contains `ch` directly) than the graphic's own bottom edge does
+  (exactly half that rate, `(ch + board.bh) / 2`). Confirmed directly,
+  not just theorized: faking an `innerHeight` shrink (same technique as
+  the elongation fix's own verification, no `'resize'` event dispatched
+  at all) reproduced a jump from `-149px` to as bad as `-217px` of
+  overlap through two wrong attempts before landing on the real fix.
+  **Real fix**: anchor the legend's own `top` (not `bottom`) directly to
+  the graphic's own actual bottom edge, `board.by + board.bh`, minus a
+  fixed `overlapPx` (a fraction of `cw`, calibrated to match the
+  original intentional-overlay look) — both sides of that subtraction
+  now move at the *same* rate as `ch` changes, so the gap between them
+  is arithmetically invariant, not just "hopefully close." Only applied
+  on the narrow branch (`cw / ch <= BOARD_ASPECT`); wide viewports fall
+  back to clearing both inline `top`/`bottom` overrides entirely,
+  restoring the original CSS-only `bottom: 6%` design untouched — `ch`
+  doesn't fluctuate there, so it was never broken. Confirmed the gap
+  against the graphic's own real (bleed-row-inclusive) bottommost lit
+  pixel stays stable within 3px across the same simulated shrink that
+  used to move it by well over 100px, and re-ran the full chapter sweep
+  (real navigation, not simulated) to confirm no chapter's own legend
+  position regressed.
 
 ## If you're picking this up fresh
 

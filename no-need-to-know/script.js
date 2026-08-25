@@ -70,7 +70,7 @@
       from: 0.95,
       heading: "No need to know",
       body:
-        "The bins are sized so that, almost always, exactly one candidate survives \u2014 Alice's true kernel, recovered from just a couple of bits, without her ever needing to know what Bob knew in advance. Bob's reconstruction doesn't have to match her wording, only her kernel \u2014 like the two equivalent statements shown here.",
+        "The bins are sized so almost always exactly one candidate survives \u2014 Alice's kernel, recovered from a couple of bits, without ever needing to know what Bob knew. It just matches her kernel, not her wording, as shown here.",
     },
   ];
 
@@ -222,6 +222,7 @@
   const pinned = track.querySelector(".pinned");
   const canvas = document.getElementById("scene");
   const ctx = canvas.getContext("2d");
+  const legend = document.getElementById("legend");
   const legendHeadingEl = document.getElementById("legendHeading");
   const legendBodyEl = document.getElementById("legendBody");
 
@@ -289,6 +290,54 @@
     canvas.height = Math.round(ch * dpr);
     board = computeBoard(cw, ch);
     layoutGrid();
+
+    // `.legend`'s own CSS `bottom: 6%` (of `.pinned`'s height, i.e. `ch`)
+    // is fine on wide viewports, where `ch` is stable and `board.by` is
+    // always 0 -- but on narrow/mobile viewports specifically, `ch`
+    // itself can shrink significantly *mid-scroll*, exactly whenever the
+    // browser's own address bar reappears (the same fact `pinned.style.
+    // height` above already has to account for) -- and the *graphic's*
+    // own vertical extent there is governed by `board.by = (ch -
+    // board.bh) / 2`, where `board.bh` is itself ch-*independent*
+    // (`computeBoard`'s narrow branch derives it from `board.bw = cw`
+    // alone), so the graphic's own bottom edge only moves at *half* the
+    // rate `ch` does. A plain `bottom` offset -- even a fixed *pixel*
+    // one, not just the original percentage -- can't fix this on its
+    // own: `legend`'s own top edge is `ch - bottomOffset - ownHeight`,
+    // which still moves 1:1 with `ch` regardless of what `bottomOffset`
+    // is, since `ch` appears directly in that formula. Reported directly
+    // as "the legend moves up, getting closer to/occluding the graphic,"
+    // specifically when scrolling *back* (exactly when a mobile
+    // browser's address bar tends to reappear) -- confirmed directly,
+    // not just theorized: faking the same innerHeight shrink this
+    // piece's own elongation fix already has to guard against
+    // reproduced a ~200px overlap.
+    //
+    // The actual fix has to anchor the legend's own `top`, not `bottom`,
+    // directly to the graphic's own real bottom edge (`board.by +
+    // board.bh`) minus a fixed overlap amount -- preserving the *same*
+    // intentional overlay amount (the CSS's own "a caption card overlaid
+    // on the pinned graphic" design) regardless of how much `ch` itself
+    // fluctuates, since both sides of the subtraction now move at the
+    // *same* rate (both governed by the graphic's own bottom edge).
+    // `overlapPx` was picked by measuring the actual gap this produced
+    // at a representative narrow viewport before this fix existed, then
+    // expressed as a fraction of `cw` so it scales sensibly across
+    // different phone widths, the same way the rest of this piece's own
+    // sizing already does via `pitch`.
+    if (cw / ch <= BOARD_ASPECT) {
+      const graphicBottomPx = board.by + board.bh;
+      const overlapPx = cw * 0.2;
+      legend.style.top = `${graphicBottomPx - overlapPx}px`;
+      legend.style.bottom = "auto"; // must be explicit, not "" -- otherwise the CSS `bottom: 6%` rule still applies too, and top+bottom+height:auto forces a stretched height instead of the content-driven one this card needs
+    } else {
+      // Wide viewports: fall back to the original CSS-only design
+      // (`bottom: 6%`, `top: auto`) -- `ch` doesn't fluctuate there, so
+      // this was never broken.
+      legend.style.top = "";
+      legend.style.bottom = "";
+    }
+
     render(lastT); // repaint immediately at the current t, no blank flash
   }
 
