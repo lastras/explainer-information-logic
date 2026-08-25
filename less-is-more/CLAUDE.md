@@ -96,14 +96,29 @@ framework. The discipline, in order, for *any* nontrivial change:
 4. **Checks run after every meaningful change**, always:
    - **Idle-static**: screenshot, wait 1.5–2s doing nothing, screenshot
      again, assert byte-identical `canvas.toDataURL()`. Confirms nothing
-     animates from wall-clock time (the one hard invariant this piece
-     inherited from phase 1 and extended to phase 2 — see below).
+     animates from wall-clock time (the hard invariant this piece
+     inherited from phase 1 and extended to phase 2 — see below). **Two
+     legitimate, narrowly-scoped exceptions now**, not one: an active
+     drag, and the tetrahedron auto-spin while it's still running (only
+     possible while `tGame` is in `[doorsEnd, playArrive)`, or briefly
+     past `playArrive` until it finishes its current revolution and
+     snaps to rest — see "Tetrahedron auto-spin" below). Idle-static
+     must still hold everywhere else: before `doorsEnd`, and once the
+     spin has settled at/past `playArrive`.
    - **Forward/backward scroll scrub**: for every *scroll-driven*
      chapter (not the interactive game/tetrahedron-drag past `playArrive`
      — those are legitimately state-driven, not reversible-by-
      construction), scroll through a set of `t` values forward, then the
      same values backward, assert each `t` produces byte-identical
-     canvas both directions.
+     canvas both directions. **Also not reversible-by-construction from
+     `doorsEnd` on**, now, for the same reason: once the board is
+     visible at all, the auto-spin's own real-elapsed-time state means
+     revisiting the same `t` after a different amount of real time has
+     passed can legitimately show the shape at a different rotation.
+     Confirmed directly, this session: everything strictly before
+     `doorsEnd` still matches byte-for-byte forward vs. backward;
+     `doorsEnd` and beyond legitimately doesn't, purely because of
+     accumulated auto-spin time, not a bug.
    - **Full-page error scan**: scroll through the *entire* track in
      small steps, assert zero console errors and zero failed network
      requests (aside from the harmless `favicon.ico` 404, which is
@@ -134,7 +149,14 @@ framework. The discipline, in order, for *any* nontrivial change:
      absolute distance to `CORRECT_COLOR`/`CATASTROPHIC_COLOR` — a
      cube's own per-face flat-shading brightness swings the exact
      sampled RGB well away from the raw constant, but which channel
-     dominates survives that shading.
+     dominates survives that shading. **Since the auto-spin was added**:
+     any test script computing a door's screen position offline (via
+     `rotatePoint3D`/`project3D` at a fixed `TETRA_ALIGN_X/Y`) is only
+     valid once the spin has actually settled — either wait it out (up
+     to a full revolution, `2*PI / TETRA_AUTOSPIN_SPEED` seconds, plus
+     margin, worst case) after first reaching `tGame >= playArrive`, or
+     cancel it first with a real drag before relying on a computed
+     angle for hit-testing.
 5. **When a bug is found, fix root cause, re-verify with the *exact same
    script that caught it*, then re-run the *whole* suite** — several
    real bugs in this session were only caught this way (see "Bugs found
@@ -156,10 +178,18 @@ roughly this order (grep for the section-header comments, which use
 
 - `t` = a single scalar in `[0,1]`, derived from scroll position
   (`computeT()`), driving *everything*. Nothing animates from
-  wall-clock time **except** the tetrahedron's drag-rotation, which is
-  real user-pointer-input-driven state, not time-driven — it changes
-  only on an actual drag and holds exactly still otherwise, satisfying
-  the same "static unless something changes" rule by a different route.
+  wall-clock time **except two things**: the tetrahedron's
+  drag-rotation, which is real user-pointer-input-driven state, not
+  time-driven — it changes only on an actual drag and holds exactly
+  still otherwise, satisfying the same "static unless something
+  changes" rule by a different route — and, added in a later session,
+  a slow **auto-spin** in `tetraRotY` alone, running only across
+  `[doorsEnd, playArrive)` (plus a short tail past `playArrive` to
+  finish its current revolution) and cancelled permanently, instantly,
+  by the first real drag. See "Tetrahedron auto-spin" below —
+  genuinely wall-clock-time-driven, not just user-input-driven like the
+  drag exception, so it narrows the idle-static invariant differently;
+  don't conflate the two when re-verifying.
 - Phase 1 (the original, pre-existing piece: Venn-diagram kernel/query
   argument, weather-sentence examples, cost curves, "This is what
   Less/More means") is **completely untouched** by any of phase 2's
@@ -199,13 +229,13 @@ recompute if you touch `LEGACY_END`/track height again):
 | `tGame` | Boundary name | What happens |
 |---|---|---|
 | 0 → 0.05 | `transitionEnd` | "Let's demonstrate this with a game" — phase 1's own diagram/tile/chart fade out together, one shot |
-| → 0.1333 | `doorsEnd` | "Six doors, two that matter" — the tetrahedron itself fades in (wireframe + 6 door-cubes, at its default `TETRA_ALIGN_X/Y` pose — see below) and becomes *draggable* (not yet tappable — see `playArrive`) |
-| → 0.2167 | `scoopEnd` | "Alice has the scoop" |
-| → 0.3 | `obviousEnd` | "The most obvious option" — tell Bob everything, ~4.9 bits (log₂30) |
-| → 0.4 | `enoughEnd` | "But you don't need all that" — naming just the prize door alone is enough, ~2.58 bits (log₂6); teases "something better" |
-| → 0.5 | `signalEnd` | "Alice's signal" — reveals 2 bits (log₂4); the 2-dot signal indicator fades in |
-| → 0.5833 | `playArrive` | Interactive game begins — see below; board stops following `t`, becomes *tappable* (it's already been draggable since `doorsEnd` — see "This session's redesign") |
-| → 0.9333 | `summaryStart` | Legend switches to the closing "Less is more" card; the tetrahedron keeps sitting there, exactly as draggable/tappable as a moment before |
+| → 0.1333 | `doorsEnd` | "Six doors, two that matter" (now names the six cubes as doors explicitly, and teases the tetrahedron's own significance) — the tetrahedron itself fades in (wireframe + 6 door-cubes, at its default `TETRA_ALIGN_X/Y` pose — see below), becomes *draggable* (not yet tappable — see `playArrive`), and the auto-spin starts (see "Tetrahedron auto-spin" below) |
+| → 0.2167 | `scoopEnd` | "Alice has the scoop" — the two fixed illustrative doors (prize + dud) are highlighted, color + word label (`illustrativeHighlightPhase` returns `'both'` from here through `obviousEnd`) |
+| → 0.3 | `obviousEnd` | "The most obvious option" — tell Bob everything, ~4.9 bits (log₂30); illustrative highlight still `'both'` through here |
+| → 0.4 | `enoughEnd` | "But you don't need all that" — naming just the prize door alone is enough, ~2.58 bits (log₂6); teases "something better"; illustrative highlight narrows to `'prizeOnly'` from here through `playArrive` |
+| → 0.5 | `signalEnd` | "Alice's signal" — reveals 2 bits (log₂4); the signal indicator fades in **below** the shape now (larger font too — see "Tetrahedron auto-spin..." session notes below); illustrative highlight still `'prizeOnly'` |
+| → 0.5833 | `playArrive` | Interactive game begins — see below; board stops following `t`, becomes *tappable* (it's already been draggable since `doorsEnd` — see "This session's redesign"); illustrative highlight goes `'none'` for good; the auto-spin, if not already cancelled by a drag, keeps running until it next crosses `TETRA_ALIGN_Y`, then snaps to rest |
+| → 0.9333 | `summaryStart` | Legend switches to the closing "Less is more" card (now names the concrete "More" payoff: the code hands you three safe doors, one the true prize); the tetrahedron keeps sitting there, exactly as draggable/tappable as a moment before |
 
 There used to be two more rows here — `tetraStart` (a 2D→3D crossfade)
 and `tetraSweepEnd` (a scroll-driven rotation sweep) — see "This
@@ -425,6 +455,107 @@ before touching. This *is* the board, not a separate later reveal (see
   exact" without a good reason, it was already tuned/accepted as "close
   enough" after direct measurement.
 
+## Tetrahedron auto-spin, illustrative highlighting, and repositioned signal (latest session)
+
+Three related but separable changes, all in the same session, worth
+understanding together before touching any of them again:
+
+### Auto-spin
+
+The tetrahedron now rotates on its own, slowly, from the moment it
+appears (`doorsEnd`) until gameplay starts (`playArrive`) — so the
+walk-through cards that are all *about* the shape don't show it sitting
+frozen the whole time. This is a **second, and so far only other**,
+exception to "nothing animates from wall-clock time" (the drag being
+the first) — narrowly scoped, and genuinely time-driven rather than
+input-driven, so it changes what idle-static verification means during
+this specific window (see the verification methodology section above).
+
+- **Mechanics**: `updateTetraAutoSpin(nowMs, tOuter)`, called from
+  `frame()` on *every* animation frame (not gated behind "did `t`
+  change" — real elapsed time keeps passing whether `t` does or not).
+  Advances `tetraRotY` alone, at `TETRA_AUTOSPIN_SPEED` (`2*PI/24`
+  rad/s — one revolution every 24s); `tetraRotX` stays pinned at
+  `TETRA_ALIGN_X` throughout, so the rotation is exactly periodic in
+  `tetraRotY` with period `2*PI` (confirmed numerically in Node before
+  writing any of this — see "Verify geometry/math numerically" above).
+  `frame` itself became `frame(now)` to get a real timestamp (rAF's own
+  callback argument, previously unused); `updateTetraAutoSpin`'s return
+  value (did it just change `tetraRotY`) is OR'd into the existing
+  `t !== lastT` check so a `render()` still happens on a frame where
+  only the spin moved.
+- **Where it stops**: holding `angleX` fixed means "the flat hexagon
+  view" (the same pose `TETRA_ALIGN_X/Y` already names) recurs *exactly*
+  whenever `tetraRotY ≡ TETRA_ALIGN_Y (mod 2*PI)` — verified numerically
+  to have no slack (the nearest miss within a full revolution is off by
+  a healthy, non-degenerate margin, not a near-tie). Once `tGame` first
+  reaches `playArrive` while still spinning, the spin ignores `t`
+  entirely from then on (`tetraAutoSpinFinishing` goes true) and simply
+  keeps advancing until the *next* such crossing, computed once as
+  `tetraAutoSpinStopAtY`, then snaps `tetraRotY` to exactly
+  `TETRA_ALIGN_Y` (not a `+2*PI*k` copy of it) and goes inert for good.
+  Worst case, this tail runs a full 24s past `playArrive` — see the
+  verification methodology's own note on why offline test scripts that
+  assume a fixed `TETRA_ALIGN_X/Y` angle need to either wait this out or
+  cancel the spin first.
+- **Cancelled instantly, permanently, by a real drag**:
+  `onTetraPointerDown` sets `tetraAutoSpinActive = false` as its very
+  first action — no fighting the user's own input, no snapping back
+  later, same precedent the tap-vs-drag handoff already set.
+- **Re-armed by leaving the board's visible window entirely**:
+  `render()` tracks `wasBoardVisible` (parallel to the existing
+  `wasInteractive`/`resetGameToInitialState` pattern) and, on the
+  `true → false` transition of `isBoardVisible(t)` (scrolling backward
+  past `doorsEnd`), resets `tetraRotX/Y` to `TETRA_ALIGN_X/Y` and
+  re-arms `tetraAutoSpinActive`/clears the finishing state — mirroring
+  "leaving the game resets it," one level broader.
+- **State**: `tetraAutoSpinActive` (bool), `tetraAutoSpinFinishing`
+  (bool), `tetraAutoSpinStopAtY` (number or `null`), `tetraAutoSpinLastMs`
+  (number or `null` — the rAF timestamp last advanced against; `null`
+  whenever not currently eligible to advance, so a long gap, e.g.
+  scrolling away and back, or the tab being backgrounded, never
+  produces one giant dt jump — the first frame back always just
+  re-establishes the baseline and advances nothing).
+
+### Illustrative prize/dud doors
+
+Two **fixed, always-the-same** doors — `ILLUSTRATIVE_PRIZE_DOOR = 0`,
+`ILLUSTRATIVE_DUD_DOOR = 1` — used purely to dramatize "Alice knows
+exactly which is which" / "naming the prize alone is enough" concretely,
+during the pre-`playArrive` walk-through. **Not** `carDoor`/`zonkDoor`:
+the real secret is already randomized at module load and stays live all
+the way into "Play, blind" — showing it this early would spoil the
+blind round. Never randomized, never involved in real scoring.
+
+- `illustrativeHighlightPhase(tGame)` returns `'both'` (prize green +
+  "prize" label, dud red + "dud" label) across
+  `[doorsEnd, obviousEnd)`, `'prizeOnly'` (prize only) across
+  `[obviousEnd, playArrive)`, `'none'` otherwise. `drawGameBoard`
+  checks this *before* the real selected/opened/car/zonk logic — only
+  ever relevant pre-`playArrive`, since that real state is still empty
+  then, so there's nothing for it to shadow.
+- `drawDoorWordLabel(i, text, color, alpha)` — a plain word label above
+  the door, parallel to the vertex code label's own
+  `anchor: "bottom"`/fixed-gap styling. The gap needed retuning larger
+  than a first guess (`gameUnit * DOOR_DOT_RADIUS_MULT * 3.2` overlapped
+  a nearby vertex dot at the default pose, caught by screenshot; settled
+  on `* 6.5`, floor 30px) — the door for `ILLUSTRATIVE_DUD_DOOR`
+  specifically sits close to one of its own two vertices at
+  `TETRA_ALIGN_X/Y`, so this needed more clearance than the vertex
+  label itself does.
+
+### Signal moved below the shape; banner stays above
+
+`aliceSignalPos()` used to double as the win/loss banner's own anchor
+(both "above the shape"). Now that the signal itself lives **below**
+the shape (reads better near the doors it's actually about, and is
+drawn larger — `drawSignalIndicator`'s own `sizeMult`, `0.95 → 1.3`),
+the banner needed its own, separate anchor: `resultBannerPos()`,
+carrying the *exact* old "above the shape" formula unchanged, so the
+banner's own appearance/position is untouched. `tallyPos()` moved
+further below to clear the signal's own larger footprint, without
+overlapping it.
+
 ## Things tried and explicitly reverted (don't redo these without a new reason)
 
 This session went through several rounds of trying to formalize
@@ -574,6 +705,12 @@ retried:
   the current secret. Meaningless without the codebook, same point
   phase 1 makes about a short pre-agreed list needing to be shared in
   advance to be useful.
+- **Illustrative prize/dud doors** (`ILLUSTRATIVE_PRIZE_DOOR = 0`,
+  `ILLUSTRATIVE_DUD_DOOR = 1`) = a fixed, always-the-same pair used
+  purely to dramatize the walk-through cards before `playArrive` — never
+  the real, randomized `carDoor`/`zonkDoor`, and never involved in real
+  scoring. See "Tetrahedron auto-spin, illustrative highlighting..."
+  above.
 
 ## If you're picking this up fresh, in order of likely need
 

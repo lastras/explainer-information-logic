@@ -79,6 +79,15 @@
 // a vertex is an honest, plain, unlabeled corner of the shape -- not a
 // disc (still not this piece's symbol for "a kernel"), and not yet
 // carrying any code either.
+//
+// The tetrahedron also carries this file's *second* (and, so far, only
+// other) exception to "nothing animates from wall-clock time": a slow
+// auto-spin in tetraRotY alone, running for as long as the shape sits
+// on screen before gameplay starts (doorsEnd..playArrive) and cancelled
+// permanently, instantly, the moment an actual drag begins -- see
+// tetraRotX/Y's own declaration and updateTetraAutoSpin for the
+// mechanics, and this piece's own CLAUDE.md for the full writeup and
+// what it means for idle-static verification during that window.
 // -----------------------------------------------------------------------
 
 (function () {
@@ -370,11 +379,15 @@
   // LEGEND_CHUNKS above is keyed to phase 1's own local t. A short,
   // plain-prose story -- doors, a prize, a dud -- that walks through the
   // actual numbers (4.9 bits, then 2.58, then 2) instead of asserting
-  // "2 bits" out of nowhere. Deliberately no new canvas machinery for
-  // any of it: the same six unchanging points sit there the whole time;
-  // only the legend text changes. Echoes phase 1's own vocabulary
-  // ("short list") once the real mechanism is reached, rather than
-  // introducing new terms for the same idea.
+  // "2 bits" out of nowhere. The same six unchanging points sit there
+  // the whole time; only the legend text changes, plus one small,
+  // targeted exception -- the two fixed illustrative doors' own
+  // prize/dud color-and-word highlight (see illustrativeHighlightPhase),
+  // dramatizing exactly what "Alice has the scoop"/"The most obvious
+  // option" and "But you don't need all that"/"Alice's signal" already
+  // say in prose, concretely, on the shape itself. Echoes phase 1's own
+  // vocabulary ("short list") once the real mechanism is reached,
+  // rather than introducing new terms for the same idea.
   const GAME_LEGEND_CHUNKS = [
     {
       from: 0,
@@ -385,7 +398,7 @@
       from: CHG.transitionEnd,
       heading: "Six doors, two that matter",
       body:
-        "Behind one door is a prize; behind another, a dud. You'll walk away with the prize only if you open the door that has it \u2014 and never open the one with the dud.",
+        "Each of these six cubes is a door. Behind one is a prize; behind another, a dud. You'll walk away with the prize only if you open the door that has it \u2014 and never open the one with the dud. The shape they're sitting on matters too, for a reason that comes later.",
     },
     {
       from: CHG.doorsEnd,
@@ -433,7 +446,8 @@
     },
     hinted: {
       heading: "Play, with the code",
-      body: "Decode Alice's signal, open exactly that group's doors, and win every time.",
+      body:
+        "Match Alice's signal to the tetrahedron corner wearing that same code, then open the three doors touching that corner. Do that every round, and you win every time.",
     },
   };
 
@@ -444,7 +458,7 @@
   const SUMMARY_TEXT = {
     heading: "Less is more",
     body:
-      "That short, pre-agreed list is the whole trick: it lets Alice send less than either obvious strategy, and it leaves Bob knowing more than she actually had to tell him. Agree on the list once, and it covers every situation that comes up \u2014 a weather report, or a door with a prize behind it.",
+      "That short, pre-agreed list is the whole trick: it lets Alice send less than either obvious strategy, and it leaves Bob knowing more than she actually had to tell him. Concretely, in this game: the 2-bit code hands you three safe doors to open at once \u2014 one of them the true prize \u2014 genuinely more than the single door that was strictly enough. Agree on the list once, and it covers every situation that comes up \u2014 a weather report, or a door with a prize behind it.",
   };
 
   // ---- Palette -------------------------------------------------------------
@@ -767,6 +781,18 @@
   const NUM_DOORS = 6;
   const MAX_SELECTABLE = NUM_DOORS;
 
+  // Two fixed, always-the-same doors, used purely to *illustrate*
+  // "Alice knows exactly which is which" / "naming the prize alone is
+  // enough" concretely (see illustrativeHighlightPhase/drawDoorWordLabel
+  // below) during the pre-playArrive walk-through cards. Deliberately
+  // *not* carDoor/zonkDoor: the real secret is already randomized at
+  // module load (randomizeSecret(), below) and stays live all the way
+  // into "Play, blind" -- showing the real secret this early would spoil
+  // the blind round. Picked arbitrarily (0 and 1); never randomized,
+  // never involved in real scoring.
+  const ILLUSTRATIVE_PRIZE_DOOR = 0;
+  const ILLUSTRATIVE_DUD_DOOR = 1;
+
   // Given a car door and a zonk door, find a group that includes the car
   // door and excludes the zonk door. Returns -1 if none is found (should
   // never happen for car !== zonk, per the SI's own proof).
@@ -945,13 +971,25 @@
   let winTally = 0;
   let lossTally = 0;
 
-  // The tetrahedron's own live rotation: real user input (a drag), not
-  // wall-clock time -- it changes only when the user actually drags, and
-  // holds exactly still otherwise, the same "static unless something
-  // changes" rule every other piece of interactive state in this file
-  // already follows. Starts at TETRA_ALIGN_X/Y -- see that constant's
-  // own note above for why the idle pose is deliberately the one that
-  // looks flat, not an arbitrary "reads as 3D immediately" pose.
+  // The tetrahedron's own live rotation: driven by real user input (a
+  // drag) -- it changes on a drag and holds exactly still otherwise --
+  // *or*, during one narrow, deliberately-scoped window, by real
+  // wall-clock time (see updateTetraAutoSpin, below): a lazy auto-spin
+  // that runs from the moment the shape appears (doorsEnd) until
+  // gameplay starts (playArrive), so the shape doesn't just sit
+  // motionless through the walk-through cards that are all *about* it.
+  // This is the second, and only other, exception to this file's own
+  // "nothing animates from wall-clock time" rule (the top-of-file note
+  // and this piece's own CLAUDE.md now both call out two exceptions,
+  // not one) -- narrowly scoped on purpose: outside
+  // [doorsEnd, playArrive), and the instant an actual drag starts
+  // (onTetraPointerDown), this is exactly as static as every other
+  // piece of interactive state in this file. Starts at TETRA_ALIGN_X/Y
+  // -- see that constant's own note above for why the idle pose is
+  // deliberately the one that looks flat, not an arbitrary "reads as
+  // 3D immediately" pose -- which is also the auto-spin's own start
+  // (and, since it holds angleX fixed and rotation in angleY alone is
+  // exactly periodic with period 2*PI, its own eventual stop) angle.
   let tetraRotX = TETRA_ALIGN_X;
   let tetraRotY = TETRA_ALIGN_Y;
   let tetraDragging = false;
@@ -967,6 +1005,42 @@
   // reveal chapter. Reset to 0 on every pointerdown; checked against
   // TETRA_TAP_MAX_PX on pointerup.
   let tetraGestureDist = 0;
+
+  // ---- Tetrahedron auto-spin state (see updateTetraAutoSpin, in the
+  // rendering section below, for the mechanics) --------------------------
+  // True whenever the auto-spin is still eligible to run at all -- goes
+  // false the instant a drag starts (onTetraPointerDown) or the spin
+  // completes on its own past playArrive, and comes back true only by
+  // re-arming (scrolling backward out of the board's own visible
+  // window entirely -- see render()'s own sibling check to
+  // resetGameToInitialState()).
+  let tetraAutoSpinActive = true;
+  // True from the exact moment tGame first reaches playArrive while
+  // still spinning -- from then on the spin ignores t entirely and
+  // simply keeps advancing tetraRotY (real time, nothing else) until it
+  // reaches tetraAutoSpinStopAtY, at which point it snaps to exactly
+  // TETRA_ALIGN_Y and tetraAutoSpinActive goes false for good.
+  let tetraAutoSpinFinishing = false;
+  // The exact tetraRotY value (always TETRA_ALIGN_Y plus some whole
+  // number of full turns) the finishing spin is heading for -- computed
+  // once, the moment tetraAutoSpinFinishing goes true, as the *next*
+  // such value strictly ahead of tetraRotY's own position at that
+  // moment, so the shape always completes at least a little more
+  // motion after playArrive rather than possibly stopping dead on
+  // arrival.
+  let tetraAutoSpinStopAtY = null;
+  // The rAF timestamp (ms) the spin last actually advanced against --
+  // `null` whenever the spin isn't currently eligible to advance (not
+  // yet on screen, or just came back on screen this frame): this is
+  // what keeps a long gap (e.g. scrolling away and back, or the tab
+  // being backgrounded) from producing one giant, jarring dt jump the
+  // next time the spin resumes -- the first frame back always just
+  // re-establishes this baseline and advances nothing.
+  let tetraAutoSpinLastMs = null;
+  // One lazy revolution every 24s -- a starting point, tuned by actually
+  // watching it (screenshotted at known real-time intervals, per this
+  // file's own verification discipline), not eyeballed live.
+  const TETRA_AUTOSPIN_SPEED = (2 * Math.PI) / 24;
 
   function randomInt(n) {
     return Math.floor(Math.random() * n);
@@ -1108,6 +1182,12 @@
   // scrolling backward out of that zone (see resetGameToInitialState()
   // below). Starts false, matching isGameInteractive(0).
   let wasInteractive = false;
+  // Parallel tracker for isBoardVisible(), so render() can detect
+  // scrolling backward out of the board's own (broader) visible window
+  // entirely -- the moment that re-arms the auto-spin (see
+  // updateTetraAutoSpin/render() below). Starts false, matching
+  // isBoardVisible(0).
+  let wasBoardVisible = false;
 
   // tGame: local t for phase 2, running 0->1 over outer t's own
   // [LEGACY_END, 1] share. Clamped at both ends, same convention as
@@ -1149,6 +1229,23 @@
   function isBoardVisible(tOuter) {
     const tGame = tGameOf(tOuter);
     return tOuter >= LEGACY_END && tGame >= CHG.doorsEnd;
+  }
+
+  // Which of the two fixed illustrative doors (see ILLUSTRATIVE_PRIZE_
+  // DOOR/ILLUSTRATIVE_DUD_DOOR above) drawGameBoard should highlight
+  // right now, keyed to the same tGame boundaries as GAME_LEGEND_CHUNKS:
+  // 'both' spans "Alice has the scoop" and "The most obvious option"
+  // (doorsEnd..obviousEnd) -- both cards are about Alice knowing/telling
+  // the *full* fact, prize and dud alike; 'prizeOnly' spans "But you
+  // don't need all that" and "Alice's signal" (obviousEnd..playArrive)
+  // -- both are about the *narrower* fact (the prize alone) already
+  // being enough. 'none' everywhere else, including from playArrive on,
+  // where the real per-door selected/opened/car/zonk coloring takes
+  // over completely and these two doors become perfectly ordinary.
+  function illustrativeHighlightPhase(tGame) {
+    if (tGame >= CHG.doorsEnd && tGame < CHG.obviousEnd) return "both";
+    if (tGame >= CHG.obviousEnd && tGame < CHG.playArrive) return "prizeOnly";
+    return "none";
   }
 
   function updateLegend(tOuter) {
@@ -2171,17 +2268,41 @@
       });
   }
 
+  // A plain word label ("prize"/"dud") above one of the two fixed
+  // illustrative doors -- parallels the vertex code label's own
+  // anchor="bottom"/fixed-screen-space-gap styling just above, but
+  // colored to match the door's own illustrative highlight rather than
+  // the neutral vertex label color. Purely for the pre-playArrive
+  // walk-through cards (see illustrativeHighlightPhase); never used for
+  // the real per-round car/zonk reveal, which relies on color plus the
+  // win/loss banner alone (see drawGameBoard's own note on that).
+  function drawDoorWordLabel(i, text, color, alpha) {
+    if (alpha <= 0) return;
+    const p = doorBoardPos(i);
+    const gap = Math.max(gameUnit * DOOR_DOT_RADIUS_MULT * 6.5, 30);
+    drawLabel(text, p.x, p.y - gap, alpha, "center", {
+      sizeMult: 0.72,
+      anchor: "bottom",
+      color,
+      glowColor: color,
+    });
+  }
+
   // The board itself: wireframe edges, the 4 vertices (dot always; the
   // binary code label only once cheatsheetRevealed), and the 6 door-
   // cubes, all read from the shape's own live tetraRotX/Y via
   // doorBoardPos/vertexBoardPos -- the same single source of truth a tap
   // hit-tests against. `alpha` is this whole board's own fade-in (see
   // drawGameScene); each door's own color additionally reflects its
-  // selected/opened/car/zonk state.
-  function drawGameBoard(alpha) {
+  // selected/opened/car/zonk state, or -- before playArrive, when none
+  // of that real state exists yet -- its illustrative prize/dud
+  // highlight (see illustrativeHighlightPhase). `tGame` is only needed
+  // for that illustrative check.
+  function drawGameBoard(alpha, tGame) {
     if (alpha <= 0) return;
     const c = gameToBoard(0, 0);
     const scale = gameUnit * TETRA_SCALE_MULT;
+    const highlightPhase = illustrativeHighlightPhase(tGame);
 
     // Wireframe edges first -- always behind the vertices/cubes drawn
     // over them next, and always visible from the moment the board
@@ -2223,29 +2344,57 @@
         }
       } else {
         const i = item.index;
-        const opened = openedDoors.has(i);
-        const selected = selectedDoors.has(i);
-        const isCar = opened && i === carDoor;
-        const isZonk = opened && i === zonkDoor;
-
         let color = NEUTRAL;
         let cubeAlpha = alpha;
-        if (isCar) color = CORRECT_COLOR;
-        else if (isZonk) color = CATASTROPHIC_COLOR;
-        else if (selected) color = CANDIDATE_COLOR;
-        else if (opened) cubeAlpha = alpha * 0.4; // opened, empty -- dims, doesn't vanish
-        // Car/zonk reveal on open: color alone (green/red), no
-        // "correct"/"catastrophic" text label, and no separate
-        // "selected" ring either (an earlier, flat-square version of
-        // this board had one; it doesn't translate cleanly onto a
-        // cube's own faces) -- the color change plus the cube's own
-        // glow is enough signal on its own, and the prominent win/loss
-        // banner above the board (drawResultBanner, below) already
-        // says which door was which once a round resolves.
+        let wordLabel = null;
+        let wordColor = null;
+
+        // Illustrative highlight, checked first -- only ever true
+        // before playArrive, when selectedDoors/openedDoors are still
+        // empty and carDoor/zonkDoor's own real reveal hasn't started,
+        // so there's no real state left for this branch to shadow.
+        if (highlightPhase !== "none" && i === ILLUSTRATIVE_PRIZE_DOOR) {
+          color = CORRECT_COLOR;
+          wordLabel = "prize";
+          wordColor = CORRECT_COLOR;
+        } else if (highlightPhase === "both" && i === ILLUSTRATIVE_DUD_DOOR) {
+          color = CATASTROPHIC_COLOR;
+          wordLabel = "dud";
+          wordColor = CATASTROPHIC_COLOR;
+        } else {
+          const opened = openedDoors.has(i);
+          const selected = selectedDoors.has(i);
+          const isCar = opened && i === carDoor;
+          const isZonk = opened && i === zonkDoor;
+
+          if (isCar) color = CORRECT_COLOR;
+          else if (isZonk) color = CATASTROPHIC_COLOR;
+          else if (selected) color = CANDIDATE_COLOR;
+          else if (opened) cubeAlpha = alpha * 0.4; // opened, empty -- dims, doesn't vanish
+          // Car/zonk reveal on open: color alone (green/red), no
+          // "correct"/"catastrophic" text label, and no separate
+          // "selected" ring either (an earlier, flat-square version of
+          // this board had one; it doesn't translate cleanly onto a
+          // cube's own faces) -- the color change plus the cube's own
+          // glow is enough signal on its own, and the prominent win/loss
+          // banner above the board (drawResultBanner, below) already
+          // says which door was which once a round resolves.
+        }
 
         drawTetraCube(i, c.x, c.y, scale, cubeAlpha, tetraRotX, tetraRotY, color);
+        if (wordLabel) drawDoorWordLabel(i, wordLabel, wordColor, alpha);
       }
     }
+  }
+
+  // Above the shape -- the same anchor aliceSignalPos() itself used to
+  // use, before the signal moved below (see that function's own note).
+  // Extracted into its own named function so the win/loss banner's
+  // position stays exactly where it always was, independent of
+  // wherever the signal now sits.
+  function resultBannerPos() {
+    const c = gameToBoard(0, 0);
+    return { x: c.x, y: c.y - gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.36) };
   }
 
   // A prominent, plain-language result banner above the board -- "You
@@ -2255,7 +2404,7 @@
   // board.
   function drawResultBanner(alpha) {
     if (alpha <= 0 || !roundResolved || lastRoundWin === null) return;
-    const sp = aliceSignalPos();
+    const sp = resultBannerPos();
     const color = lastRoundWin ? CORRECT_COLOR : CATASTROPHIC_COLOR;
     drawLabel(lastRoundWin ? "You win!!" : "You lose!", sp.x, sp.y - gameUnit * 0.16, alpha, "center", {
       sizeMult: 1.3,
@@ -2276,14 +2425,24 @@
     drawLabel(groupIndex.toString(2).padStart(2, "0"), cx, cy - size / 2, alpha, "center", { sizeMult, color });
   }
 
+  // Below the shape now, not above (see the closing "Alice's signal"
+  // note in GAME_LEGEND_CHUNKS/GAME_PHASE_TEXT for why this is the
+  // signal the player is meant to keep reading off, round after round):
+  // reads better sitting near the doors it's actually about, rather
+  // than floating above the whole board where the win/loss banner
+  // (resultBannerPos, above) now sits alone. Also drawn larger now (see
+  // drawGameScene's own sizeMult passed to drawSignalIndicator).
   function aliceSignalPos() {
     const c = gameToBoard(0, 0);
-    return { x: c.x, y: c.y - gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.36) };
+    return { x: c.x, y: c.y + gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.34) };
   }
 
+  // Pushed further below the signal's own new position, not overlapping
+  // it -- the signal's own larger font (see drawGameScene) now takes
+  // more vertical room than the old, smaller signal it replaced.
   function tallyPos() {
     const c = gameToBoard(0, 0);
-    return { x: c.x, y: c.y + gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.3) };
+    return { x: c.x, y: c.y + gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.68) };
   }
 
   // A persistent win/loss tally -- plain drawLabel text, no separate DOM
@@ -2307,10 +2466,10 @@
     const signalAppear = smoothstep(CHG.enoughEnd, CHG.signalEnd, tGame);
     const playAppear = smoothstep(CHG.signalEnd, CHG.playArrive, tGame);
 
-    drawGameBoard(boardAppear);
+    drawGameBoard(boardAppear, tGame);
     if (signalAppear > 0) {
       const sp = aliceSignalPos();
-      drawSignalIndicator(sp.x, sp.y, hintedGroup, 0.95, signalAppear, NEUTRAL);
+      drawSignalIndicator(sp.x, sp.y, hintedGroup, 1.3, signalAppear, NEUTRAL);
     }
     if (playAppear > 0) {
       drawTally(playAppear);
@@ -2379,6 +2538,22 @@
     if (wasInteractive && !reachedGame) resetGameToInitialState();
     wasInteractive = reachedGame;
 
+    // Sibling check, one level broader: scrolling backward out of the
+    // board's own visible window *entirely* (not just out of the
+    // interactive game) re-arms the auto-spin, mirroring
+    // resetGameToInitialState() above -- "leaving the game resets it,"
+    // extended to "leaving the board resets its own idle rotation too."
+    const boardVisible = isBoardVisible(t);
+    if (wasBoardVisible && !boardVisible) {
+      tetraRotX = TETRA_ALIGN_X;
+      tetraRotY = TETRA_ALIGN_Y;
+      tetraAutoSpinActive = true;
+      tetraAutoSpinFinishing = false;
+      tetraAutoSpinStopAtY = null;
+      tetraAutoSpinLastMs = null;
+    }
+    wasBoardVisible = boardVisible;
+
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const cw = canvas.width / dpr;
@@ -2393,11 +2568,77 @@
     syncGameControls(isGameInteractive(t));
   }
 
-  // ---- Main loop: t is the only input -- nothing here is driven by
-  // wall-clock time, so the scene is perfectly static whenever scrolling
-  // stops, and scrubbing up/down is always smooth. --------------------------
+  // ---- Tetrahedron auto-spin: the one thing in this file driven by
+  // real wall-clock time, not t -- see tetraRotX/Y's own note above for
+  // why, and CLAUDE.md for the full writeup. Called from frame() below
+  // on *every* animation frame (not gated behind "did t change," the
+  // way render() otherwise is), since real elapsed time keeps passing
+  // whether or not t does. Advances tetraRotY alone (tetraRotX stays
+  // pinned at TETRA_ALIGN_X throughout) at TETRA_AUTOSPIN_SPEED,
+  // real-time. Returns true iff it actually changed tetraRotY this
+  // call, so frame() knows to force a render() even when t itself
+  // didn't move.
+  function updateTetraAutoSpin(nowMs, tOuter) {
+    if (!tetraAutoSpinActive) {
+      tetraAutoSpinLastMs = null;
+      return false;
+    }
+    const tGame = tGameOf(tOuter);
+    const onScreen = tOuter >= LEGACY_END && tGame >= CHG.doorsEnd;
+    if (!onScreen) {
+      // Not yet reached doorsEnd -- nothing to advance yet, and don't
+      // let a baseline established before this point cause a spurious
+      // dt jump once it is reached.
+      tetraAutoSpinLastMs = null;
+      return false;
+    }
+
+    // The exact moment playArrive is first reached, still spinning:
+    // from here on, ignore t entirely and head for the *next* exact
+    // crossing of TETRA_ALIGN_Y (mod 2*PI) -- verified numerically
+    // (see CLAUDE.md) to be the unique angle, within a whole revolution
+    // either side, that reproduces the aligned "hexagon" pose, so this
+    // has no slack to get wrong. `+ 1` (not `Math.ceil`, which would
+    // return 0 -- an immediate, dead-on-arrival stop -- in the
+    // vanishingly unlikely case tetraRotY already sits exactly on a
+    // crossing) guarantees the target is always strictly ahead.
+    if (!tetraAutoSpinFinishing && tGame >= CHG.playArrive) {
+      tetraAutoSpinFinishing = true;
+      const revs = Math.floor((tetraRotY - TETRA_ALIGN_Y) / (2 * Math.PI)) + 1;
+      tetraAutoSpinStopAtY = TETRA_ALIGN_Y + revs * 2 * Math.PI;
+    }
+
+    if (tetraAutoSpinLastMs == null) {
+      // First frame back on screen (or the very first frame overall):
+      // establish a real-time baseline, advance nothing yet -- avoids
+      // a large, spurious dt on the frame a long gap (a slow scroll
+      // back to before doorsEnd and forward again, or the tab having
+      // been backgrounded) ends.
+      tetraAutoSpinLastMs = nowMs;
+      return false;
+    }
+    const dt = Math.max(0, (nowMs - tetraAutoSpinLastMs) / 1000);
+    tetraAutoSpinLastMs = nowMs;
+    if (dt <= 0) return false;
+
+    tetraRotY += TETRA_AUTOSPIN_SPEED * dt;
+
+    if (tetraAutoSpinFinishing && tetraRotY >= tetraAutoSpinStopAtY) {
+      tetraRotY = TETRA_ALIGN_Y; // snap to the exact canonical aligned angle, not a +2*PI*k copy of it
+      tetraAutoSpinActive = false;
+      tetraAutoSpinFinishing = false;
+      tetraAutoSpinStopAtY = null;
+      tetraAutoSpinLastMs = null;
+    }
+    return true;
+  }
+
+  // ---- Main loop: t drives everything, with one narrow, deliberate
+  // exception (the tetrahedron auto-spin above) -- so the scene is
+  // perfectly static whenever scrolling stops *and* the spin isn't
+  // currently active, and scrubbing up/down is always smooth. --------------
   let lastInnerHeight = window.innerHeight;
-  function frame() {
+  function frame(now) {
     // A direct check, not just the 'resize' listener below: on mobile,
     // the browser's own address bar shows/hides *in response to*
     // scrolling, which is exactly when a missed or delayed 'resize'
@@ -2410,7 +2651,13 @@
       resize();
     }
     const t = computeT();
-    if (t !== lastT) render(t);
+    // updateTetraAutoSpin runs every frame regardless of whether t
+    // changed -- real elapsed time, not t, is what it advances against
+    // -- so its own return value (did it just move tetraRotY) has to
+    // be OR'd into the render-or-not decision alongside the usual
+    // t-changed check.
+    const spinChanged = updateTetraAutoSpin(now, t);
+    if (t !== lastT || spinChanged) render(t);
     updateLegend(t);
     requestAnimationFrame(frame);
   }
@@ -2540,6 +2787,11 @@
 
   function onTetraPointerDown(e) {
     if (tetraDragging) return;
+    // Cancels the auto-spin the instant a drag starts -- no fighting
+    // the user's own input, no snapping back to the spin later. Only
+    // re-arms by scrolling backward out of the board's own visible
+    // window entirely (see render()'s own check, above).
+    tetraAutoSpinActive = false;
     tetraDragging = true;
     tetraActivePointerId = e.pointerId;
     tetraLastPointerX = e.clientX;
