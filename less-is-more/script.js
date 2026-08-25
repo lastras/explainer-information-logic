@@ -1097,6 +1097,7 @@
   const gameOpenBtn = document.getElementById("gameOpenBtn");
   const gameRevealBtn = document.getElementById("gameRevealBtn");
   const gameNewRoundBtn = document.getElementById("gameNewRoundBtn");
+  const tetraGrabZone = document.getElementById("tetraGrabZone");
 
   const tileGrid = buildTileGrid();
 
@@ -2426,7 +2427,7 @@
   // ---- Top-level render -------------------------------------------------------
   function render(t) {
     lastT = t;
-    syncTetraTouchAction(t);
+    layoutTetraGrabZone(t);
 
     // Detected -- and reset -- *before* drawScene() runs, not after: this
     // way the reset state is simply what this same render() call draws,
@@ -2503,172 +2504,102 @@
 
   // ---- The geometric reveal's own interaction: drag to rotate ------------
   // Pointer Events, not separate mouse/touch handlers -- one code path
-  // for mouse, touch, and pen alike, except for one deliberate touch-only
-  // wrinkle (the location check below): a mouse drag never competes with
-  // a native scroll gesture, so it always rotates regardless of where on
-  // the canvas it starts; a touch drag does compete with the page's own
-  // scroll, so *where* it starts decides, once, up front, which of the
-  // two the whole gesture means. setPointerCapture keeps delivering
-  // move/up events to the canvas even if the pointer strays outside it
+  // for mouse, touch, and pen alike. setPointerCapture keeps delivering
+  // move/up events even if the pointer strays outside the target
   // mid-drag, the standard way to implement a drag gesture without
   // needing window-level listeners.
   //
-  // Two earlier approaches here, both reverted after real failures on an
-  // actual device (a synthetic, exactly-axis-aligned Puppeteer test
-  // passed for both, which is *why* each one's own failure only showed up
-  // once a person actually tried it):
-  // 1. `touch-action: pan-y` in style.css alone -- real fingers are never
-  //    perfectly horizontal, and browsers commit to "this is a scroll"
-  //    from just the first couple of pixels of *any* vertical component,
-  //    so a real "mostly sideways" drag kept getting swallowed into a
-  //    native scroll before ever reaching this code ("a fully horizontal
-  //    motion won't actually rotate the figure at all").
-  // 2. A direction-based axis lock in JS (decide "rotate" vs "scroll"
-  //    from the first ~10px of movement's own dominant axis) -- reported
-  //    as still not working. Direction is an inherently noisy signal to
-  //    infer intent from; *where* the gesture starts is not.
-  // Current approach: intent is decided entirely by whether the touch
-  // *starts* on the tetrahedron itself (rotate) or elsewhere on screen,
-  // e.g. the empty space above or below it (scroll) -- matching how a
-  // person actually thinks about it ("I'm touching the shape" vs "I'm
-  // touching the page"), not a property of the motion at all.
-  // `touch-action: none` while (and only while) this zone is active
-  // (syncTetraTouchAction below, kept in sync from render()) hands every
-  // touch gesture here to this code with zero native interference either
-  // way; "elsewhere" gestures then manually replay a plain scroll
-  // (window.scrollBy) themselves, since native scrolling is switched off
-  // for this whole zone, not just over the shape.
-  let tetraGestureMode = "rotate"; // "rotate" | "scroll" -- decided once, at pointerdown
+  // These listeners are attached to tetraGrabZone (see below), a small,
+  // separate DOM element -- *not* to the canvas itself. Three earlier
+  // approaches all lived directly on the canvas instead, each reverted
+  // after a real failure on an actual device (a synthetic, exactly-
+  // controlled Puppeteer test passed for all three, which is *why* each
+  // one's own failure only showed up once a person actually tried it):
+  // 1. A static `touch-action: pan-y` on the canvas -- real fingers are
+  //    never perfectly axis-aligned, so a real "mostly sideways" drag
+  //    kept getting swallowed into a native scroll.
+  // 2. A direction-based axis lock in JS -- still unreliable; direction
+  //    is an inherently noisy signal to infer intent from.
+  // 3. Deciding intent by location (a circular hit-test against the
+  //    canvas's own coordinates), but still toggling the *canvas's own*
+  //    touch-action dynamically and hand-rolling a manual scroll replay
+  //    (window.scrollBy) for every off-shape gesture, since native
+  //    scrolling was switched off for the *entire* canvas, not just the
+  //    shape. This mostly worked, but the manual replay is a noticeably
+  //    worse approximation of scrolling than the real thing (no
+  //    momentum, no elastic bounce, 1:1 tracking only), and *still*
+  //    turned out fragile to real browsers occasionally mishandling a
+  //    touch-action change on an in-progress touch, however carefully
+  //    timed around tetraDragging/a separate touch-presence count --
+  //    reported directly as heavy flicker trying to scroll back out of
+  //    the tetrahedron card, to the point of it being "very difficult."
+  // Current approach: give the shape's own hit-region a genuinely
+  // separate small DOM element (tetraGrabZone in index.html), sized and
+  // positioned to sit exactly over the rendered tetrahedron
+  // (layoutTetraGrabZone below), with touch-action: none set once, in
+  // CSS, permanently -- never toggled at all. A touch starting on that
+  // element rotates; every other touch, everywhere else on the page
+  // (including everywhere else on the canvas), is completely untouched
+  // by any of this and gets 100% ordinary native scrolling, momentum and
+  // all, with no manual replay standing in for it. "Where the gesture
+  // starts" is still the right signal (that part held up); the fix here
+  // is using a real DOM element to enforce it, rather than one shared
+  // CSS property on one giant element that has to keep changing at
+  // exactly the wrong moments.
 
-  // How far from the tetrahedron's own center (gameToBoard(0,0)) a touch
-  // may start and still count as "on the shape." The vertices themselves
-  // sit at local-space radius sqrt(3) (TETRA_VERTS_3D's own (+-1,+-1,+-1)
-  // construction), i.e. a projected radius of roughly
+  // Sized and positioned every render() call (cheap, and always exactly
+  // right regardless of viewport size or the tetrahedron's own resting
+  // position) to sit exactly over the rendered shape. TETRA_HIT_RADIUS_MULT
+  // is how far from the tetrahedron's own center (gameToBoard(0,0)) still
+  // counts as "on the shape": the vertices themselves sit at local-space
+  // radius sqrt(3) (TETRA_VERTS_3D's own (+-1,+-1,+-1) construction),
+  // i.e. a projected radius of roughly
   // gameUnit * TETRA_SCALE_MULT * sqrt(3) -- this is deliberately larger
   // than that (measured against actual screenshots, not just computed),
   // generous enough to comfortably include each vertex's own code label
   // drawn just above it and to forgive imprecision in exactly where a
-  // finger lands, while still leaving clear open space above and below
-  // the shape (where a scroll attempt should never accidentally rotate
-  // it instead).
+  // finger lands.
   const TETRA_HIT_RADIUS_MULT = 1.3;
 
-  function isOnTetrahedron(clientX, clientY) {
-    const rect = canvas.getBoundingClientRect();
+  function layoutTetraGrabZone(t) {
+    const active = isTetraActive(t) && tGameOf(t) >= CHG.tetraSweepEnd;
+    tetraGrabZone.hidden = !active;
+    if (!active) return;
     const c = gameToBoard(0, 0);
-    const dx = clientX - rect.left - c.x;
-    const dy = clientY - rect.top - c.y;
     const r = gameUnit * TETRA_HIT_RADIUS_MULT;
-    return dx * dx + dy * dy <= r * r;
+    tetraGrabZone.style.left = `${c.x - r}px`;
+    tetraGrabZone.style.top = `${c.y - r}px`;
+    tetraGrabZone.style.width = `${r * 2}px`;
+    tetraGrabZone.style.height = `${r * 2}px`;
   }
 
-  // Kept in sync with every t change (called from render(), which fires
-  // on scroll-driven crossings and on the very first render alike) rather
-  // than every animation frame -- this only ever needs to change exactly
-  // when t crosses tetraSweepEnd, in either direction, so tying it to "t
-  // actually changed" is enough. Uses the *exact* same condition as
-  // onTetraPointerDown's own gate below -- if you change one, change
-  // both, or a drag could become enabled while native scrolling is still
-  // also active for it (or vice versa).
-  //
-  // Never touches touch-action while *any* touch is currently down on
-  // the canvas -- not just one this code has itself claimed as a drag
-  // (tetraDragging), but any touch at all, tracked unconditionally by
-  // tetraActiveTouchPointers below regardless of where it started.
-  //
-  // The first version of this only checked tetraDragging, which covers a
-  // gesture that *starts* inside this zone and scrolls itself back out
-  // (see onTetraPointerMove's own manual scrollBy) -- but a perfectly
-  // ordinary scroll that starts *above* this zone (touch-action: "auto"
-  // at that moment, so it's a plain native browser scroll, never claimed
-  // by tetraDragging at all) and continues down *into* it hits exactly
-  // the same underlying problem from the other side: t crossing
-  // tetraSweepEnd mid-scroll used to flip touch-action to "none" while
-  // that same native-scroll touch was still live, which real mobile
-  // browsers handle inconsistently -- reported directly as heavy flicker
-  // scrolling down from above the tetrahedron into it. Recomputed once
-  // every touch has actually lifted instead (see both onTetraPointerUp
-  // and the always-on tracking below).
-  function syncTetraTouchAction(t) {
-    if (tetraDragging || tetraActiveTouchPointers.size > 0) return;
-    canvas.style.touchAction = isTetraActive(t) && tGameOf(t) >= CHG.tetraSweepEnd ? "none" : "auto";
-  }
-
-  // Only one pointer is ever *claimed* as a drag at a time -- see
-  // onTetraPointerDown's own note on why a second, simultaneous one (an
-  // incidental palm/other-hand touch, most commonly) must be ignored
-  // outright rather than taking over.
+  // Only one pointer is ever tracked at a time -- a second, simultaneous
+  // touch (e.g. the user's other hand briefly brushing the *small* grab
+  // zone specifically, much less likely now than when this was the
+  // entire canvas, but still worth guarding against) must never
+  // interrupt an already-active drag: overwriting the shared
+  // tetraLastPointerX/Y out from under the first finger's own gesture
+  // would mean the *next* move event for either finger gets diffed
+  // against the *other* finger's last position -- an arbitrarily large,
+  // spurious jump.
   let tetraActivePointerId = null;
 
-  // Every touch physically down on the canvas, tracked unconditionally --
-  // independent of tetraActivePointerId/tetraDragging above, which only
-  // track a touch this code has actually *claimed*. A plain scroll that
-  // starts outside this zone is never claimed at all, but still needs to
-  // block syncTetraTouchAction above for as long as it's live.
-  //
-  // Deliberately populated from plain Touch Events (touchstart/touchend/
-  // touchcancel below), not from the Pointer Events above: once a
-  // touch-action: "auto" gesture gets picked up by the browser as a
-  // native scroll, the browser fires pointercancel for it almost
-  // immediately (per spec -- pointer tracking doesn't apply once native
-  // compositor scrolling takes over) -- but touchmove/touchend keep
-  // firing for the *whole* physical gesture regardless. Using Pointer
-  // Events here (tried first) meant this set emptied out again within
-  // the first couple of pixels of *any* native scroll, long before it
-  // ever reached this zone -- silently defeating the whole point of
-  // tracking it.
-  const tetraActiveTouchPointers = new Set();
-
-  function onTetraTouchStart(e) {
-    for (const touch of e.changedTouches) tetraActiveTouchPointers.add(touch.identifier);
-  }
-  function onTetraTouchEnd(e) {
-    for (const touch of e.changedTouches) tetraActiveTouchPointers.delete(touch.identifier);
-    syncTetraTouchAction(lastT);
-  }
-  canvas.addEventListener("touchstart", onTetraTouchStart, { passive: true });
-  canvas.addEventListener("touchend", onTetraTouchEnd, { passive: true });
-  canvas.addEventListener("touchcancel", onTetraTouchEnd, { passive: true });
-
   // A single move event's delta is clamped to this many px before being
-  // applied to either rotation or the manual scroll replay -- a last-
-  // resort backstop, not the primary fix (see onTetraPointerDown), for
-  // any *other* implausible single-event jump (e.g. resuming a drag
-  // after the tab was backgrounded and comes back mid-gesture). Applied
-  // to the *effect* only; tetraLastPointerX/Y itself still tracks the
-  // real, unclamped position, so one clamped event doesn't throw off
-  // the delta computed for the next one.
+  // applied to rotation -- a last-resort backstop against any other
+  // implausible single-event jump (e.g. resuming a drag after the tab
+  // was backgrounded and comes back mid-gesture). Applied to the effect
+  // only; tetraLastPointerX/Y itself still tracks the real, unclamped
+  // position, so one clamped event doesn't throw off the delta computed
+  // for the next one.
   const TETRA_MAX_STEP_PX = 150;
 
-  // Gated on tGame >= tetraSweepEnd, not just isTetraActive(): dragging
-  // during the scroll-driven sweep itself would fight over control of
-  // tetraRotX/Y with values that aren't even being read yet
-  // (drawGameScene interpolates its own angles during the sweep) --
-  // matches the legend's own "keep scrolling... then drag it yourself"
-  // ordering.
   function onTetraPointerDown(e) {
-    if (!isTetraActive(lastT) || tGameOf(lastT) < CHG.tetraSweepEnd) return;
-    // A second, simultaneous touch (e.g. the user's other hand briefly
-    // brushing the screen) must never interrupt an already-active drag.
-    // Each pointerdown after the first used to silently overwrite the
-    // shared tetraLastPointerX/Y and tetraGestureMode out from under the
-    // first finger's own gesture, so the *next* move event for either
-    // finger got diffed against the *other* finger's last position -- an
-    // arbitrarily large, spurious jump. Reported directly as an
-    // occasional flicker followed by the scroll position landing all the
-    // way back at the very start of the piece (a large enough negative
-    // delta simply clamps window.scrollBy to 0). Ignoring every pointer
-    // but the first, until it lifts, removes the interleaving entirely.
     if (tetraDragging) return;
     tetraDragging = true;
     tetraActivePointerId = e.pointerId;
-    // Mouse/pen: always rotate, wherever the click starts -- there's no
-    // competing native-scroll gesture to avoid on desktop in the first
-    // place, so there's nothing for a location check to protect against.
-    tetraGestureMode = e.pointerType !== "touch" || isOnTetrahedron(e.clientX, e.clientY) ? "rotate" : "scroll";
     tetraLastPointerX = e.clientX;
     tetraLastPointerY = e.clientY;
-    canvas.setPointerCapture(e.pointerId);
+    tetraGrabZone.setPointerCapture(e.pointerId);
   }
 
   function onTetraPointerMove(e) {
@@ -2678,14 +2609,6 @@
     tetraLastPointerX = e.clientX;
     tetraLastPointerY = e.clientY;
 
-    if (tetraGestureMode === "scroll") {
-      // touch-action is "none" here, so nothing else will scroll this --
-      // replaying it manually is what makes an off-shape gesture feel
-      // like anything happened at all.
-      window.scrollBy(0, -dy);
-      return;
-    }
-
     const sensitivity = 0.008;
     tetraRotY += dx * sensitivity;
     tetraRotX += dy * sensitivity;
@@ -2693,17 +2616,15 @@
   }
 
   function onTetraPointerUp(e) {
-    if (e.pointerId === tetraActivePointerId) {
-      tetraDragging = false;
-      tetraActivePointerId = null;
-    }
-    syncTetraTouchAction(lastT); // safe now that this pointer is gone -- see syncTetraTouchAction's own note on why not during
+    if (e.pointerId !== tetraActivePointerId) return;
+    tetraDragging = false;
+    tetraActivePointerId = null;
   }
 
-  canvas.addEventListener("pointerdown", onTetraPointerDown);
-  canvas.addEventListener("pointermove", onTetraPointerMove);
-  canvas.addEventListener("pointerup", onTetraPointerUp);
-  canvas.addEventListener("pointercancel", onTetraPointerUp);
+  tetraGrabZone.addEventListener("pointerdown", onTetraPointerDown);
+  tetraGrabZone.addEventListener("pointermove", onTetraPointerMove);
+  tetraGrabZone.addEventListener("pointerup", onTetraPointerUp);
+  tetraGrabZone.addEventListener("pointercancel", onTetraPointerUp);
 
   window.addEventListener("resize", resize);
   resize();

@@ -47,15 +47,53 @@ html, body {
   justify-content: center;
 }
 
-/* touch-action is set dynamically from script.js (syncTetraTouchAction),
-   not fixed here: "none" only while the tetrahedron's own drag-to-rotate
-   is active, "auto" everywhere else in the piece. See that function's
-   own note in script.js for why this needs to be dynamic (and why a
-   fixed `pan-y` here, tried first, wasn't reliable enough on its own). */
 #scene {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* An invisible, precisely-positioned/sized circular hit target, placed
+   and sized by script.js (layoutTetraGrabZone) to sit exactly over the
+   tetrahedron reveal's own rendered shape once it's draggable --
+   touch-action: none, permanently, on *this* element only, never on
+   #scene itself.
+   Three earlier approaches lived directly on #scene instead, each
+   reverted after a real failure on an actual device:
+   1. A static `touch-action: pan-y` on #scene -- real fingers are never
+      perfectly axis-aligned, so a real "mostly sideways" drag kept
+      getting swallowed into a native scroll.
+   2. A direction-based axis lock in JS -- still unreliable; direction is
+      an inherently noisy signal to infer intent from.
+   3. Deciding intent by location, but still toggling *#scene's own*
+      touch-action dynamically ("none" only while active) and hand-
+      rolling a manual scroll replay (window.scrollBy) for every
+      off-shape gesture, since native scrolling was switched off for the
+      *entire* canvas, not just the shape -- workable, but the manual
+      replay is a noticeably worse approximation of scrolling than the
+      real thing (no momentum, no elastic bounce, 1:1 tracking only),
+      and *still* fragile to real browsers occasionally mishandling a
+      touch-action change on an in-progress touch, however carefully
+      timed -- reported directly as heavy flicker trying to scroll back
+      out of the tetrahedron card.
+   Splitting the shape's own hit-region out as a genuinely separate DOM
+   element sidesteps both problems at once: this element's own
+   touch-action never has to change, ever (it's simply not present/
+   hit-testable via `hidden` outside the draggable window, which is a
+   completely different, much safer kind of change than mutating
+   touch-action on a live touch's own target), and #scene's touch-action
+   is never touched at all, anywhere, so every other gesture on the page
+   -- including everywhere else on the canvas outside this one small
+   circle -- gets 100% ordinary native scrolling, momentum and all, with
+   zero custom code standing in for it. */
+.tetra-grab-zone {
+  position: absolute;
+  border-radius: 50%;
+  touch-action: none;
+}
+
+.tetra-grab-zone[hidden] {
+  display: none;
 }
 
 /* The legend card and the game's own button row, stacked as one bottom-

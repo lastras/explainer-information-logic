@@ -19,6 +19,16 @@
 <div class="scroll-track" id="scrollTrack">
   <div class="pinned">
     <canvas id="scene"></canvas>
+    <!-- An invisible, precisely-positioned/sized circular hit target,
+         placed and sized by script.js (layoutTetraGrabZone) to sit
+         exactly over the tetrahedron reveal's own rendered shape once
+         it's draggable. Its own CSS gives it touch-action: none
+         permanently -- see style.css's own note on why splitting this
+         out as a *separate* small element, rather than toggling
+         touch-action on #scene itself, is what actually lets ordinary
+         native scrolling (with full momentum) keep working everywhere
+         else on the page, including everywhere else on the canvas. -->
+    <div class="tetra-grab-zone" id="tetraGrabZone" hidden></div>
     <!-- Both the legend card and the game's own controls are bottom-
          anchored as *one* flex stack (not two independently absolute-
          positioned elements): when the button row is shown, it should
