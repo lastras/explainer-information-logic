@@ -115,10 +115,11 @@ framework. The discipline, in order, for *any* nontrivial change:
      animates from wall-clock time (the one hard invariant this piece
      inherited from phase 1 and extended to phase 2 — see below).
    - **Forward/backward scroll scrub**: for every *scroll-driven*
-     chapter (not the interactive game, not tetrahedron-drag — those are
-     legitimately state-driven, not reversible-by-construction), scroll
-     through a set of `t` values forward, then the same values backward,
-     assert each `t` produces byte-identical canvas both directions.
+     chapter (not the interactive game/tetrahedron-drag past `playArrive`
+     — those are legitimately state-driven, not reversible-by-
+     construction), scroll through a set of `t` values forward, then the
+     same values backward, assert each `t` produces byte-identical
+     canvas both directions.
    - **Full-page error scan**: scroll through the *entire* track in
      small steps, assert zero console errors and zero failed network
      requests (aside from the harmless `favicon.ico` 404, which is
@@ -130,9 +131,26 @@ framework. The discipline, in order, for *any* nontrivial change:
    - **Viewport sweep**: 900×700 (primary desktop), 390×844 (mobile),
      900×600 ("short" — the one that has caught the most real layout
      bugs), 360×740 (small mobile). A few times, 1400×900 (wide) too.
-   - **Drag-specific** (tetrahedron reveal): simulate a
-     `mouse.down()` → several `mouse.move()` → `mouse.up()`, confirm the
-     canvas changed during, and is idle-static again after release.
+   - **Drag-specific**: simulate a `mouse.down()` → several
+     `mouse.move()` → `mouse.up()`, confirm the canvas changed during,
+     and is idle-static again after release.
+   - **Tap-vs-drag, and rotate-then-tap correctness** (added once the 2D
+     board and the tetrahedron merged into one draggable+tappable
+     shape): a near-zero-movement pointer sequence toggles a door and
+     does *not* rotate; a clearly-moved one rotates and does *not*
+     toggle a door — checked both on top of a door-cube and on empty
+     space between doors. Separately: rotate the shape by a *known*
+     amount (replicate `rotatePoint3D`/`project3D`/`sensitivity` in the
+     test script itself to predict the new screen position of a
+     specific door), then tap where that door *now* is — confirm the
+     right door toggles, and confirm tapping its *old*, pre-rotation
+     position does nothing. Identifying which door is the prize/dud
+     from a screenshot is more robust by *dominant color channel*
+     (green clearly ahead of both red and blue, or vice versa) than by
+     absolute distance to `CORRECT_COLOR`/`CATASTROPHIC_COLOR` — a
+     cube's own per-face flat-shading brightness swings the exact
+     sampled RGB well away from the raw constant, but which channel
+     dominates survives that shading.
 5. **When a bug is found, fix root cause, re-verify with the *exact same
    script that caught it*, then re-run the *whole* suite** — several
    real bugs in this session were only caught this way (see "Bugs found
@@ -176,8 +194,8 @@ roughly this order (grep for the section-header comments, which use
   constants to compensate; that's the whole point of this split.**
 - Phase 2 (`tGame = (tOuter - LEGACY_END) / (1 - LEGACY_END)`, its own
   `[0,1]` range) is everything covered below. `CHG` (chapter boundaries)
-  and `GAME_LEGEND_CHUNKS`/`GAME_PHASE_TEXT`/`TETRA_REVEAL_TEXT`/
-  `SUMMARY_TEXT` (legend copy) are all keyed to `tGame`.
+  and `GAME_LEGEND_CHUNKS`/`GAME_PHASE_TEXT`/`SUMMARY_TEXT` (legend copy)
+  are all keyed to `tGame`.
 - The old standalone demo this was built from,
   `content/demo-game-show-code/` (or wherever it lives relative to this
   repo — it's a sibling in the IBM monorepo, not present in *this*
@@ -198,27 +216,117 @@ recompute if you touch `LEGACY_END`/track height again):
 | `tGame` | Boundary name | What happens |
 |---|---|---|
 | 0 → 0.05 | `transitionEnd` | "Let's demonstrate this with a game" — phase 1's own diagram/tile/chart fade out together, one shot |
-| → 0.1333 | `doorsEnd` | "Six doors, two that matter" — 6 door-points fade in (plain hexagon, see below) |
+| → 0.1333 | `doorsEnd` | "Six doors, two that matter" — the tetrahedron itself fades in (wireframe + 6 door-cubes, at its default `TETRA_ALIGN_X/Y` pose — see below) |
 | → 0.2167 | `scoopEnd` | "Alice has the scoop" |
 | → 0.3 | `obviousEnd` | "The most obvious option" — tell Bob everything, ~4.9 bits (log₂30) |
 | → 0.4 | `enoughEnd` | "But you don't need all that" — naming just the prize door alone is enough, ~2.58 bits (log₂6); teases "something better" |
 | → 0.5 | `signalEnd` | "Alice's signal" — reveals 2 bits (log₂4); the 2-dot signal indicator fades in |
-| → 0.5833 | `playArrive` | Interactive game begins — see below; board stops following `t` |
-| → 0.8333 | `tetraStart` | Geometric reveal begins — 2D board crossfades into the 3D tetrahedron |
-| → 0.9333 | `tetraSweepEnd` | Scroll-driven rotation sweep completes; hands off to user drag |
-| → 0.975 | `summaryStart` | Legend switches to the closing "Less is more" card; tetrahedron stays draggable forever after |
+| → 0.5833 | `playArrive` | Interactive game begins — see below; board stops following `t`, becomes draggable+tappable, **with no upper bound ever again** |
+| → 0.9333 | `summaryStart` | Legend switches to the closing "Less is more" card; the tetrahedron keeps sitting there, exactly as draggable/tappable as a moment before |
+
+There used to be two more rows here — `tetraStart` (a 2D→3D crossfade)
+and `tetraSweepEnd` (a scroll-driven rotation sweep) — see "This
+session's redesign" below for why they're gone, and where their own vh
+budget went instead (a longer `playArrive..summaryStart` play window).
 
 All the actual bit-cost numbers (4.9, 2.58, 2) are stated as **plain
 prose in the legend card only** — there is deliberately no attempt to
 visualize kernels/queries/checkmarks on the canvas for this part
 anymore (see "Things tried and reverted" below for why).
 
-### Interactive game (`tGame` in `[playArrive, tetraStart)`)
+## This session's redesign: merging the 2D board into the tetrahedron
 
-Not `t`-driven at all past `playArrive` — driven by real clicks.
-`isGameInteractive(tOuter)` is the single source of truth for "are we in
-this zone" (note it has an *upper* bound at `tetraStart` too, added
-later — see bugs below). Game state:
+For a long time, this piece had **two separate visual representations**
+of the same 6-door structure, shown one after the other: a flat 2D
+hexagon (`DOOR_LOCAL`/`GAME_DOOR_ANGLES`, since deleted) that the entire
+interactive game was played on, reached only by scrolling *past* it into
+a *separate* "geometric reveal" — a real, drag-rotatable 3D tetrahedron,
+whose sole interaction was a drag (no door-tapping at all there). That
+two-scene structure is now gone entirely: from the moment the board
+fades in (`doorsEnd`) to the end of the piece, "Guess the Door" is
+played directly on one continuous, real 3D tetrahedron — draggable *and*
+tappable, from `playArrive` onward, with no upper bound. There's nothing
+left to "reveal" geometrically (the player has been looking at, and can
+rotate, the tetrahedron the whole time); only the cheat sheet's vertex
+*labels* are still a genuine, player-triggered reveal now.
+
+Load-bearing consequences of this merge, worth knowing before touching
+any of it again:
+
+- **`doorBoardPos(i)`/`vertexBoardPos(g)` are the single source of
+  truth** for where a door/vertex actually is on screen, *right now* —
+  always `project3D(rotatePoint3D(DOOR_LOCAL_3D[i]` (or `TETRA_VERTS_3D[g]`
+  for the vertex version) `, tetraRotX, tetraRotY), ...)`. Both rendering
+  (`drawGameBoard`) and tap hit-testing (`onTetraPointerUp`) call the
+  *exact same* functions — there is no separate "flat layout" a tap
+  could hit-test against that might disagree with what's actually drawn.
+- **The idle/default rotation is `TETRA_ALIGN_X/Y`** (the angle that
+  already sends the 6 doors to a flat, non-overlapping hexagon — see
+  below), not the old `TETRA_REST_X/Y` "reads as 3D immediately" pose
+  (deleted). This is deliberate: the shape *looks* like the old flat
+  hexagon at rest, right up until the player drags it — there's no
+  separate flat board left to hand off from, and no scroll-driven sweep
+  left to rotate away from it either.
+- **Tap vs. drag, on the very same DOM element** (`tetraGrabZone`):
+  `onTetraPointerDown/Move/Up` track `tetraGestureDist`, the total
+  pointer movement (accumulated across every move event, not just net
+  start→end displacement) since the current gesture's own `pointerdown`.
+  Rotation is applied *live*, move by move, regardless of how the
+  gesture eventually gets classified. On `pointerup` (not
+  `pointercancel` — an interrupted gesture never counts as a tap):
+  `tetraGestureDist < TETRA_TAP_MAX_PX` (8px) means a tap, so hit-test
+  all 6 doors via `doorBoardPos` and toggle whichever one the pointer
+  landed on; at or past that threshold, it was a drag, and rotation
+  already happened — no toggle.
+- **`isGameInteractive(tOuter)` lost its upper bound.** It used to go
+  `false` again at the old `tetraStart` (a different scene, a different
+  interaction model, needed its own gate); now there's only one scene
+  and one interaction model, active forever once reached, so
+  `isTetraActive()` and `hasReachedGame()` (two other predicates that
+  used to exist *specifically* to disagree with `isGameInteractive()`
+  about the upper bound — see the historical bug entry below) collapsed
+  into it. `layoutTetraGrabZone`'s own active-window check, and
+  `render()`'s "scrolled backward out of the game, reset everything"
+  check, both just call `isGameInteractive()` directly now.
+- **A door's own cube is always full-size** (`TETRA_CUBE_HALF`, no
+  `zHalf`/`cubeZHalf` parameter anymore) — no more flat-to-cube
+  thickening, since there's no separate reveal moment left to thicken
+  *into*. `drawTetraCube` takes an explicit `color` param (reflecting
+  selected/opened-as-prize/opened-as-dud/neutral) instead of a
+  hardcoded one.
+- **`TETRA_BOARD_RADIUS_MULT`** (distinct from the intentionally-
+  oversized `TETRA_HIT_RADIUS_MULT`) anchors `aliceSignalPos`/
+  `tallyPos` a fixed distance from the shape's own center, replacing
+  their old use of `GAME_DOOR_RADIUS`. **Caught by screenshot, this
+  session**: an initial value (1.0) sized to the shape's own *worst-
+  case* vertex reach pushed the signal text clean off the top of the
+  viewport at the shape's default resting pose on a 700px-tall
+  viewport — a hard, always-visible clipping bug, for the sake of
+  guaranteeing zero overlap at rotation angles that are individually
+  rare. Retuned down (0.55) to comfortably clear the shape's *typical*
+  extent instead, matching the old, proven-good `GAME_DOOR_RADIUS`-based
+  position closely; the tradeoff is that a vertex/cube can occasionally
+  swing out far enough, at some reachable drag angles, to sit close to
+  (rarely, slightly under) the signal or tally text. **A rare cosmetic
+  overlap beats a hard, common-case clipping failure** — don't
+  "fix" this by inflating the constant back up without re-checking the
+  clipping case at a modest viewport height.
+- Wireframe edges and the 4 vertex dots are unconditional once the board
+  itself has faded in — **not** gated behind `cheatsheetRevealed`; only
+  each vertex's own binary-code *label* waits for that. This is what
+  makes the shape read as one connected 3D object from the very start,
+  rather than 6 floating cubes that only turn out to be connected once
+  the cheat sheet arrives.
+- The old flat-square door's "selected" ring outline (`drawSquareRing`)
+  has **no cube equivalent** — deleted, not replaced. A cube's own fill
+  color change (neutral → `CANDIDATE_COLOR`) plus its own glow was
+  judged sufficient signal on its own, confirmed by screenshot.
+
+### Interactive game (`tGame ≥ playArrive`, no upper bound)
+
+Not `t`-driven at all past `playArrive` — driven by real taps/drags and
+button clicks. `isGameInteractive(tOuter)` is the single source of truth
+for "is the board interactive right now." Game state:
 
 - `carDoor`/`zonkDoor` — the random secret (prize/dud), re-rolled by
   `randomizeSecret()`.
@@ -238,58 +346,44 @@ later — see bugs below). Game state:
   No three-way win/draw/loss.
 - `resetGameToInitialState()` — fires once, detected in `render()`, when
   scrolling *backward* out of the game entirely (past `playArrive`
-  going down). Uses its own predicate, `hasReachedGame()` (no upper
-  bound), specifically *not* `isGameInteractive()` — see bugs below for
-  why that distinction is load-bearing.
-- Visuals: doors are **plain squares** (`drawSquareMarker`), never
-  discs/circles — a glowing disc means "a kernel" everywhere else in
-  this piece (established in phase 1), and a door is a single element,
-  not a kernel; drawing it as a disc would blur that distinction. Colors:
-  `CORRECT_COLOR` (green, prize), `CATASTROPHIC_COLOR` (red, dud),
-  `CANDIDATE_COLOR` (blue — reused from phase 1's own "candidate kernel"
-  color, for selected/grouped doors). A prominent "You win!!"/"You
-  lose!" text banner (`drawResultBanner`) appears above the board on
-  round resolution — no per-door "correct"/"catastrophic" text labels
-  (removed; the banner already says which happened).
-- **No connecting lines between doors at all** (removed — see "Things
-  tried and reverted"). A door's own fill color is the only signal for
-  set membership (selected, or in a cheat-sheet group).
+  going down), via `isGameInteractive()` directly (no separate
+  predicate needed anymore — see "This session's redesign" above).
+- Visuals: doors are small **cubes** sitting on the tetrahedron's own
+  edges (`drawTetraCube`), never discs/circles — a glowing disc means "a
+  kernel" everywhere else in this piece (established in phase 1), and a
+  door is a single element, not a kernel; drawing it as a disc would
+  blur that distinction. Colors: `CORRECT_COLOR` (green, prize),
+  `CATASTROPHIC_COLOR` (red, dud), `CANDIDATE_COLOR` (blue — reused from
+  phase 1's own "candidate kernel" color, for selected/grouped doors). A
+  prominent "You win!!"/"You lose!" text banner (`drawResultBanner`)
+  appears above the board on round resolution — no per-door "correct"/
+  "catastrophic" text labels (removed; the banner already says which
+  happened), and no per-cube "selected" ring either (the old flat-
+  square board's own outline doesn't translate cleanly onto a cube; the
+  color change plus the cube's own glow is enough on its own).
+- **No connecting lines between doors themselves** (removed — see
+  "Things tried and reverted"): a door's own fill color is the only
+  signal for set membership (selected, or in a cheat-sheet group). The
+  tetrahedron's own wireframe *edges* (vertex-to-vertex, always visible)
+  are a different thing — genuine 3D structure, not a "these doors are
+  related" annotation — and stay.
 
-### Board geometry — now a plain hexagon
-
-`GAME_DOOR_RADIUS = 0.5`, `GAME_DOOR_ANGLES = [180, 300, 240, 120, 0,
-60]` (degrees, indexed by door number). All 6 doors at the *same*
-radius, evenly spaced. `DOOR_LOCAL` is derived directly from these two
-constants.
-
-This used to be a two-radii "K4 planar embedding" layout (3 doors at
-radius 0.5, 3 at radius 0.16) specifically so that a now-removed
-"kernel fan" (connecting lines between grouped/selected doors) never
-crossed. Once the fan-lines were removed, that whole justification
-disappeared, and the layout was simplified to a plain hexagon — picked
-to land on the *exact* angles the 3D tetrahedron reveal's own aligned
-projection produces (see `TETRA_ALIGN_X/Y` below), which incidentally
-makes the 2D→3D crossfade close to exact rather than merely similar.
-
-`verifyGameGeometry()` still runs on load and still checks the one
-thing that's still load-bearing: **`GROUPS` really is the 4 vertex-stars
-of a tetrahedron whose 6 edges are the 6 doors** (each door belongs to
-exactly 2 groups; the six `{group,group}` pairs induced are exactly the
-six 2-subsets of `{0,1,2,3}`). This structural fact is what
-`findGroup()` and the entire 3D reveal depend on. The check used to
-*also* verify no two groups' fan-lines crossed geometrically — removed,
-since there are no fan-lines left to check.
-
-### The 3D tetrahedron reveal (`tGame ≥ tetraStart`)
+### Board geometry: the tetrahedron itself
 
 A hand-rolled 3D renderer (no library) — genuinely worth understanding
-before touching:
+before touching. This *is* the board, not a separate later reveal (see
+"This session's redesign" above):
 
 - `TETRA_VERTS_3D` — 4 vertices via the standard "alternating cube
   corners" construction: `(1,1,1), (1,-1,-1), (-1,1,-1), (-1,-1,1)`.
   Verified once (Node) that all 6 pairwise distances are equal (regular
   tetrahedron). Vertex index = group index (0–3), same order `GROUPS`
   lists them, no separate remapping.
+- `verifyGameGeometry()` still runs on load and checks the fact this
+  whole layout depends on: **`GROUPS` really is the 4 vertex-stars of a
+  tetrahedron whose 6 edges are the 6 doors** (each door belongs to
+  exactly 2 groups; the six `{group,group}` pairs induced are exactly
+  the six 2-subsets of `{0,1,2,3}`).
 - `DOOR_VERTEX_PAIRS` — derived from `GROUPS` directly (which two
   vertices/groups each door's edge connects). `DOOR_LOCAL_3D` — each
   door's 3D position, the midpoint of its own edge. Verified once that
@@ -302,46 +396,33 @@ before touching:
   caught by screenshot — see bugs below).
 - `TETRA_ALIGN_X = -π/4`, `TETRA_ALIGN_Y = atan(1/√2)` — the rotation
   that sends vertex 3 (group 3) to the ±Z axis, i.e. "look straight down
-  group 3's own vertex." Solved once, by hand then confirmed in Node.
-  At this angle the 6 doors project to a flat, non-overlapping hexagon
-  — the crossfade target when the 2D board hands off.
-- `TETRA_REST_X = -0.35`, `TETRA_REST_Y = 0.6` — the "settled" pose the
-  scroll-driven sweep rotates *to*, and where user-drag picks up from.
-- Each door is a small flat-shaded **cube** (`drawTetraCube`) — 8
-  corners (`CUBE_CORNERS_UNIT`), 6 faces (`CUBE_FACES`, wound for
-  outward normals), backface-culled, painter's-algorithm depth-sorted,
-  simple flat shading via `dot(faceNormal, cameraDir)`. Each of the 4
-  group-vertices is a plain glowing dot labeled with Alice's own 2-bit
-  code in binary (`i.toString(2).padStart(2,'0')`) — same encoding
-  `drawSignalIndicator` already uses elsewhere.
-- **The crossfade + sweep** (`drawGameScene`): `tetraAlpha` is a
-  one-way `captionAlpha` fade-in (no fade-back-out — this is the
-  piece's final resting state). While `tGame < tetraSweepEnd`: render
-  angles are `lerp(TETRA_ALIGN_X/Y, TETRA_REST_X/Y, sweepProgress)` and
-  cube z-half-size is `lerp(0, TETRA_CUBE_HALF, sweepProgress)` (x/y
-  half-size stays constant — cubes visually *thicken* from flat squares
-  rather than growing from a point). This is **scroll-driven**, not a
-  drag. Past `tetraSweepEnd`: a **one-shot handoff**
-  (`tetraSweepHandedOff` flag) sets the mutable drag state
-  `tetraRotX/Y = TETRA_REST_X/Y` exactly once, so user-dragging picks up
-  with zero visible jump; `onTetraPointerDown` refuses to start a drag
-  before `tetraSweepEnd` (matches the legend's own "keep scrolling to
-  see it rotate, then drag it yourself"). Scrolling backward before the
-  handoff re-arms it (`tetraSweepHandedOff = false` inside the sweep
-  branch) so re-crossing forward re-triggers a fresh, correct handoff.
-- Drag interaction: **Pointer Events** (`pointerdown`/`pointermove`/
-  `pointerup`/`pointercancel`), one code path for mouse/touch/pen,
-  `canvas.setPointerCapture()` so drags work even if the pointer leaves
-  the canvas mid-gesture. Gated by `isTetraActive()` (broad) *and*
-  `tGameOf(lastT) >= CHG.tetraSweepEnd` (narrow, the actual drag-enable
-  gate) in `onTetraPointerDown`.
-- **Honest limits, not overclaimed**: the crossfade is close to exact
-  (matching angles) but perspective projection still introduces a small
-  size difference between doors at different depths even at the aligned
-  angle — not literally pixel-perfect. This is fine and not something
-  to chase further; don't try to make it "more exact" without a good
-  reason, it was already tuned/accepted as "close enough" after direct
-  measurement.
+  group 3's own vertex." Solved once, by hand then confirmed in Node. At
+  this angle the 6 doors project to a flat, non-overlapping hexagon —
+  now simply this piece's own **default/idle pose** (`tetraRotX/Y`'s own
+  initial value), not a crossfade target for a separate scene.
+- Each door is a small flat-shaded **cube** (`drawTetraCube`), always at
+  its one true size (`TETRA_CUBE_HALF`) — 8 corners
+  (`CUBE_CORNERS_UNIT`), 6 faces (`CUBE_FACES`, wound for outward
+  normals), backface-culled, painter's-algorithm depth-sorted, simple
+  flat shading via `dot(faceNormal, cameraDir)`. Each of the 4
+  group-vertices is a plain glowing dot, always visible; its own binary-
+  code label (`i.toString(2).padStart(2,'0')` — same encoding
+  `drawSignalIndicator` uses elsewhere) only once `cheatsheetRevealed`.
+- Drag *and* tap interaction, on the very same element: **Pointer
+  Events** (`pointerdown`/`pointermove`/`pointerup`/`pointercancel`),
+  one code path for mouse/touch/pen, `tetraGrabZone.setPointerCapture()`
+  so a drag keeps working even if the pointer leaves the small grab
+  zone mid-gesture. Gated by `isGameInteractive()` (`layoutTetraGrabZone`
+  hides the zone entirely outside that window) — see "This session's
+  redesign" above for the tap-vs-drag disambiguation logic itself
+  (`tetraGestureDist` vs. `TETRA_TAP_MAX_PX`).
+- **Honest limits, not overclaimed**: the resting pose matches the old,
+  since-deleted flat 2D hexagon *closely*, not pixel-perfectly —
+  perspective projection still introduces a small size difference
+  between doors at different depths even at that aligned angle. This is
+  fine and not something to chase further; don't try to make it "more
+  exact" without a good reason, it was already tuned/accepted as "close
+  enough" after direct measurement.
 
 ## Things tried and explicitly reverted (don't redo these without a new reason)
 
@@ -383,9 +464,11 @@ retried:
    that job, and occasional crossings (unavoidable for 4+ point subsets,
    by Kuratowski's theorem for 5+) as visual noise rather than signal.
    Removed entirely; color alone (a door's own fill) now carries all of
-   this. This is *why* the two-radii board layout was also simplified
-   to a plain hexagon (see above) — that layout's whole reason to exist
-   was keeping those now-gone fan-lines from crossing.
+   this. This is *why* the once-separate 2D board's own two-radii layout
+   was simplified to a plain hexagon (and, later, deleted outright when
+   that whole 2D board merged into the tetrahedron itself — see "This
+   session's redesign" above) — that two-radii layout's whole reason to
+   exist was keeping those now-gone fan-lines from crossing.
 5. **`"action"` terminology** → renamed to `"button"` at one point
    (mid-session), then implicitly reverted back to **`"door"`** when #3
    was reverted (the revert target predated the button rename). Current
@@ -431,7 +514,12 @@ retried:
   `hasReachedGame()` (no upper bound), used *only* for the reset check.
   **When a boolean gets a second, narrower meaning bolted on, check
   every existing caller of the original — don't assume the widening is
-  safe everywhere it's already used.**
+  safe everywhere it's already used.** (Later, once the 2D board and the
+  tetrahedron merged into one continuously-interactive scene —
+  see "This session's redesign" above — `isGameInteractive()`'s own
+  upper bound went away entirely, and `hasReachedGame()`/`isTetraActive()`
+  collapsed back into it: the two questions this bug entry is about
+  stopped needing different answers at all.)
 - **Narrow-viewport table overflow with no scroll affordance**: the
   (since-removed) comparison table's natural width (433px) exceeded its
   container's `clientWidth` (328px) at 390px viewport width, with the
@@ -449,13 +537,22 @@ retried:
   directly (`fraction × phase2_total_vh`) rather than picking a fraction
   by feel. **Compute actual vh amounts, don't just compare fractions —
   a 0.04 gap sounds small in the abstract but is genuinely a different
-  thing to feel out at 400vh total vs. 900vh total.**
+  thing to feel out at 400vh total vs. 900vh total.** (This entire gap,
+  and the `tetraStart`/`tetraSweepEnd` chapters it was protecting, were
+  later deleted outright — see "This session's redesign" above — once
+  there was no separate reveal left that scrolling past too quickly
+  could cause you to miss.)
+- **`TETRA_BOARD_RADIUS_MULT` sized for the worst case, clipped in the
+  common case**: see "This session's redesign" above — the same
+  "compute actual amounts, don't just eyeball a formula" lesson as the
+  scroll-gap bug above, applied to a rotation-dependent visual extent
+  instead of a scroll distance.
 
 ## Naming/vocabulary cheat sheet
 
 - **Door** = one of 6 elements of the universe `M` (the game's action
-  space). Drawn as a plain square, never a disc/circle (discs mean
-  "kernel" everywhere in this piece).
+  space). Drawn as a small cube on the tetrahedron's own edge, never a
+  disc/circle (discs mean "kernel" everywhere in this piece).
 - **Prize** = the one correct/safe door (`carDoor` in code — named
   after the standalone demo's own car/zonk game-show framing, which
   predates this piece and was kept as internal naming even after the
@@ -481,7 +578,8 @@ retried:
 
 1. `cd` into the actual working copy (may need to re-clone; see remotes
    section above) and confirm `git log --oneline -5` matches what you'd
-   expect (recent commits should mention hexagon/tetrahedron/reveal).
+   expect (recent commits should mention
+   hexagon/tetrahedron/merge/tap-vs-drag).
 2. Serve locally and manually scroll through once in a real browser to
    get oriented, before editing anything.
 3. If making a change, re-read the relevant section above, grep the
