@@ -954,12 +954,39 @@
   // screenshotting it: faces facing the camera came out smaller than
   // the ones facing away). TETRA_FOCAL is in the same local 3D units as
   // TETRA_VERTS_3D/DOOR_LOCAL_3D (vertices at distance sqrt(3) from the
-  // origin); picked once by screenshotting a few candidate values for a
-  // convincing but not distorted amount of perspective, not derived.
-  const TETRA_FOCAL = 5;
+  // origin). Lowered from an original 5 to 3.5 (near/far vertex scale
+  // ratio ~2.1x -> ~3.0x, checked numerically in Node first, not just
+  // eyeballed) -- requested directly, to strengthen the sense of depth;
+  // the shape "looks great" at 5 already, so this is a deliberate,
+  // modest push, not a maximal one -- much lower starts reading as
+  // fisheye distortion rather than depth.
+  const TETRA_FOCAL = 3.5;
   function project3D(p, cx, cy, scale) {
     const s = (TETRA_FOCAL / (TETRA_FOCAL - p.z)) * scale;
     return { x: cx + p.x * s, y: cy + p.y * s, depth: p.z };
+  }
+
+  // A second depth cue, independent of the perspective scaling above:
+  // fade far geometry toward the (near-black) background instead of
+  // rendering every wireframe edge/vertex dot/cube face at the same
+  // constant opacity regardless of how near or far it actually is.
+  // Implemented as a plain alpha multiplier, not real color blending --
+  // compositing a lower-alpha foreground color over BG (`#050208`,
+  // already close to black) reads almost identically to blending the
+  // color toward black directly, with none of the extra color math.
+  // `depth` is the same rotated, pre-projection z-coordinate project3D
+  // already returns as `.depth` (or a face's own `avgDepth`, computed
+  // the same way for the existing painter's-algorithm sort).
+  // TETRA_FOG_RANGE covers the vertices' own radius from the origin
+  // (`sqrt(3) ~= 1.73`) with a little margin; TETRA_FOG_MIN_ALPHA is a
+  // floor, not a fade-to-nothing, so even the single farthest point
+  // stays clearly visible -- this is meant to read as "a bit hazier
+  // when far," not "vanishing into fog."
+  const TETRA_FOG_RANGE = 1.8;
+  const TETRA_FOG_MIN_ALPHA = 0.55;
+  function depthFogMult(depth) {
+    const t = clamp((depth + TETRA_FOG_RANGE) / (2 * TETRA_FOG_RANGE), 0, 1); // 0 = far, 1 = near
+    return TETRA_FOG_MIN_ALPHA + (1 - TETRA_FOG_MIN_ALPHA) * t;
   }
 
   // The default, at-rest rotation angle: looking straight down group 3's
@@ -2342,14 +2369,20 @@
         // lighting as every other cube.
         const brightness = fullBright ? 1 : 0.5 + 0.5 * f.nz;
         const alphaMult = fullBright ? 1 : 0.85;
+        // Depth fog applies even to `fullBright` faces -- it's a
+        // separate depth cue from the directional lighting `fullBright`
+        // bypasses, and TETRA_FOG_MIN_ALPHA's own floor keeps a
+        // selected door clearly identifiable even at the shape's own
+        // farthest point.
+        const faceFog = depthFogMult(f.avgDepth);
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(pts[0].x, pts[0].y);
         for (let k = 1; k < pts.length; k++) ctx.lineTo(pts[k].x, pts[k].y);
         ctx.closePath();
-        ctx.fillStyle = rgbCss(color, alpha * brightness * alphaMult);
+        ctx.fillStyle = rgbCss(color, alpha * brightness * alphaMult * faceFog);
         ctx.fill();
-        ctx.strokeStyle = rgbCss(NEUTRAL, alpha * 0.4);
+        ctx.strokeStyle = rgbCss(NEUTRAL, alpha * 0.4 * faceFog);
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.restore();
@@ -2442,8 +2475,15 @@
     // over them next, and always visible from the moment the board
     // itself is (not gated behind the cheat sheet): this is what makes
     // the shape read as one connected 3D object, not 6 floating cubes.
+    // Faded by depth (depthFogMult, averaged across both endpoints --
+    // canvas strokes don't support a per-point gradient without real
+    // extra work, and an edge's own two ends are close enough in depth
+    // that one averaged value reads as continuous, not stepped).
     for (const [a, b] of DOOR_VERTEX_PAIRS) {
-      drawGrowingLink(vertexBoardPos(a), vertexBoardPos(b), 1, alpha * 0.55, CANDIDATE_COLOR);
+      const pa = vertexBoardPos(a);
+      const pb = vertexBoardPos(b);
+      const edgeFog = depthFogMult((pa.depth + pb.depth) / 2);
+      drawGrowingLink(pa, pb, 1, alpha * 0.55 * edgeFog, CANDIDATE_COLOR);
     }
 
     // Vertices and door-cubes share a single back-to-front draw order
@@ -2478,7 +2518,7 @@
           const wave = (1 - Math.cos(phase)) / 2;
           glowR = dotR * (1 + CHEATSHEET_PULSE_AMPLITUDE * wave);
         }
-        drawGlow(p.x, p.y, glowR, NEUTRAL, alpha, 2.4);
+        drawGlow(p.x, p.y, glowR, NEUTRAL, alpha * depthFogMult(p.depth), 2.4);
         if (cheatsheetRevealed) {
           // anchor: "bottom" -- not the default top-anchor -- so the gap
           // above the dot is measured to the label's own *bottom* edge,

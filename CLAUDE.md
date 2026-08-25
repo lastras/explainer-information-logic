@@ -857,6 +857,67 @@ generated filler rather than doing real work the two sentences before
 it hadn't already done. The card now ends on the concrete "three safe
 doors, one the true prize" point instead.
 
+### Strengthening the sense of depth: a tighter lens, plus depth fog
+
+Requested directly — the shape "looks great" already, but reads a
+little flat — as an open-ended design question, not a specific bug.
+Two independent, additive changes, picked as the highest-payoff/
+lowest-risk options out of a longer list discussed first (others
+considered: darker shading floor for more relief, a light direction
+decoupled from the camera for stronger shading shifts during rotation —
+neither implemented yet, both bigger/riskier changes than these two):
+
+- **`TETRA_FOCAL`: `5 → 3.5`.** Moves the effective camera closer,
+  exaggerating the size difference between the shape's nearest and
+  farthest points as it rotates (checked numerically in Node first: the
+  near/far vertex scale ratio goes from ~2.1x to ~3.0x at this value —
+  picked as a deliberately modest push, not a maximal one; much lower
+  starts reading as fisheye distortion rather than depth). Purely a
+  projection-scale constant — doesn't touch `rotatePoint3D` at all, so
+  it has zero effect on the auto-spin's own exact-crossing math or the
+  `TETRA_ALIGN_X/Y` alignment fact, both of which are angle-only. Hit-
+  testing (`doorBoardPos`/`vertexBoardPos`) and rendering already read
+  the exact same `project3D` call, so changing its one constant can't
+  desync them either — confirmed directly (the full game-loop test's
+  own dominant-color-channel car/zonk identification and door-tap
+  hit-testing both still pass unchanged).
+- **`depthFogMult(depth)`**: a second, independent depth cue — fades
+  far geometry toward the background rather than rendering every
+  wireframe edge/vertex dot/cube face at one constant opacity
+  regardless of depth. Implemented as a plain alpha multiplier, not
+  real color blending: compositing a lower-alpha foreground color over
+  `BG` (`#050208`, already near-black) reads almost identically to
+  blending toward black directly, with none of the extra color math.
+  `TETRA_FOG_RANGE` (`1.8`) covers the vertices' own radius from the
+  origin (`sqrt(3) ≈ 1.73`) with a little margin; `TETRA_FOG_MIN_ALPHA`
+  (`0.55`) is a floor, not a fade-to-nothing — even the single farthest
+  point stays clearly visible, reading as "a bit hazier when far," not
+  "vanishing into fog." Applied at three call sites, each already
+  computing (or able to cheaply compute) its own depth:
+  - Wireframe edges: fogged by the *average* of both endpoints' own
+    `.depth` (canvas strokes don't support a per-point gradient without
+    real extra work, and an edge's own two ends are close enough in
+    depth that one averaged value reads as continuous).
+  - Vertex dots: fogged by the vertex's own `.depth` directly.
+  - Cube faces, inside `drawTetraCube`: fogged by each face's own
+    `avgDepth` — already computed there for the existing painter's-
+    algorithm sort, so this needed no new depth computation at all, just
+    reading a value that already existed. Applied even to `fullBright`
+    (selected-door) faces, deliberately — it's a separate cue from the
+    directional lighting `fullBright` bypasses, and the floor keeps a
+    selected door clearly identifiable even at the shape's own farthest
+    point.
+  - Deliberately *not* applied to text (vertex code labels, door word
+    labels, the signal/tally/banner) — those stay at full legibility
+    regardless of depth; fog is a cue for the shape's own geometry, not
+    for the piece's own UI/legend text.
+- **Verified the resting/near-resting pose still reads as a coherent,
+  roughly-flat hexagon** (not overwhelmed by the added distortion) by
+  screenshotting right at `doorsEnd`, before the auto-spin has had time
+  to move it — the two changes compound at the shape's most oblique
+  drag angles (where the effect is the whole point) without breaking
+  the aligned pose's own "looks flat at rest" read.
+
 ## Things tried and explicitly reverted (don't redo these without a new reason)
 
 This session went through several rounds of trying to formalize
