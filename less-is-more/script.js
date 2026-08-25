@@ -2426,6 +2426,7 @@
   // ---- Top-level render -------------------------------------------------------
   function render(t) {
     lastT = t;
+    syncTetraTouchAction(t);
 
     // Detected -- and reset -- *before* drawScene() runs, not after: this
     // way the reset state is simply what this same render() call draws,
@@ -2501,25 +2502,63 @@
   gameNewRoundBtn.addEventListener("click", startNewRound);
 
   // ---- The geometric reveal's own interaction: drag to rotate ------------
-  // Pointer Events, not separate mouse/touch handlers -- one code path
-  // for mouse, touch, and pen alike. setPointerCapture keeps delivering
-  // move/up events to the canvas even if the pointer strays outside it
-  // mid-drag, the standard way to implement a drag gesture without
-  // needing window-level listeners. On touch devices this alone isn't
-  // enough -- see #scene's own `touch-action: pan-y` in style.css, which
-  // is what actually keeps a one-finger drag from fighting the page's
-  // own native scroll (a mostly-vertical touch drag scrolls, untouched
-  // by any of this; anything with real horizontal motion reaches these
-  // handlers instead, never triggering a native scroll at all). Gated on
-  // tGame >= tetraSweepEnd, not
-  // just isTetraActive(): dragging during the scroll-driven sweep itself
-  // would fight over control of tetraRotX/Y with values that aren't even
-  // being read yet (drawGameScene interpolates its own angles during the
-  // sweep) -- matches the legend's own "keep scrolling... then drag it
-  // yourself" ordering.
+  // Pointer Events, not separate mouse/touch handlers -- one code path for
+  // mouse, touch, and pen alike, except for one deliberate touch-only
+  // wrinkle (the axis lock below): a mouse drag never competes with a
+  // native scroll gesture, so it always rotates on both axes, full stop;
+  // a touch drag does compete with the page's own scroll, so its first
+  // few pixels of movement decide, once, which of the two the *whole*
+  // gesture means, rather than blending or handing off between them
+  // mid-drag. setPointerCapture keeps delivering move/up events to the
+  // canvas even if the pointer strays outside it mid-drag, the standard
+  // way to implement a drag gesture without needing window-level
+  // listeners.
+  //
+  // This used to be `touch-action: pan-y` in style.css -- a pure-CSS fix
+  // that looked right in an exact, axis-aligned synthetic test, but real
+  // fingers are never perfectly horizontal, and browsers commit to "this
+  // is a scroll" from just the first couple of pixels of *any* vertical
+  // component -- so a real "mostly sideways" drag kept getting swallowed
+  // into a native scroll before ever reaching this code (reported
+  // directly: "a fully horizontal motion won't actually rotate the
+  // figure at all"). Fixed by taking the decision away from the browser's
+  // own coarse heuristic entirely: `touch-action: none` while (and only
+  // while) this zone is active (syncTetraTouchAction below, kept in sync
+  // from render() -- see its own note) hands *every* touch gesture here
+  // to this code with zero native interference, and the axis lock then
+  // manually replays a plain scroll (window.scrollBy) for whichever
+  // gestures turn out to be scroll-intent -- so the *result* still feels
+  // like "mostly-vertical drags scroll, mostly-horizontal drags rotate,"
+  // just decided here instead of left to the browser.
+  const TETRA_AXIS_LOCK_PX = 10; // dead zone before a touch gesture's mode is decided
+  let tetraGestureMode = null; // null (undecided) | "rotate" | "scroll" -- touch only
+  let tetraStartPointerX = 0;
+  let tetraStartPointerY = 0;
+
+  // Kept in sync with every t change (called from render(), which fires
+  // on scroll-driven crossings and on the very first render alike) rather
+  // than every animation frame -- this only ever needs to change exactly
+  // when t crosses tetraSweepEnd, in either direction, so tying it to "t
+  // actually changed" is enough. Uses the *exact* same condition as
+  // onTetraPointerDown's own gate below -- if you change one, change
+  // both, or a drag could become enabled while native scrolling is still
+  // also active for it (or vice versa).
+  function syncTetraTouchAction(t) {
+    canvas.style.touchAction = isTetraActive(t) && tGameOf(t) >= CHG.tetraSweepEnd ? "none" : "auto";
+  }
+
+  // Gated on tGame >= tetraSweepEnd, not just isTetraActive(): dragging
+  // during the scroll-driven sweep itself would fight over control of
+  // tetraRotX/Y with values that aren't even being read yet
+  // (drawGameScene interpolates its own angles during the sweep) --
+  // matches the legend's own "keep scrolling... then drag it yourself"
+  // ordering.
   function onTetraPointerDown(e) {
     if (!isTetraActive(lastT) || tGameOf(lastT) < CHG.tetraSweepEnd) return;
     tetraDragging = true;
+    tetraGestureMode = e.pointerType === "touch" ? null : "rotate"; // mouse/pen: nothing to lock
+    tetraStartPointerX = e.clientX;
+    tetraStartPointerY = e.clientY;
     tetraLastPointerX = e.clientX;
     tetraLastPointerY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
@@ -2531,6 +2570,22 @@
     const dy = e.clientY - tetraLastPointerY;
     tetraLastPointerX = e.clientX;
     tetraLastPointerY = e.clientY;
+
+    if (tetraGestureMode === null) {
+      const totalDx = e.clientX - tetraStartPointerX;
+      const totalDy = e.clientY - tetraStartPointerY;
+      if (totalDx * totalDx + totalDy * totalDy < TETRA_AXIS_LOCK_PX * TETRA_AXIS_LOCK_PX) return; // still inside the dead zone
+      tetraGestureMode = Math.abs(totalDx) >= Math.abs(totalDy) ? "rotate" : "scroll";
+    }
+
+    if (tetraGestureMode === "scroll") {
+      // touch-action is "none" here, so nothing else will scroll this --
+      // replaying it manually is what makes a locked-scroll gesture feel
+      // like anything happened at all.
+      window.scrollBy(0, -dy);
+      return;
+    }
+
     const sensitivity = 0.008;
     tetraRotY += dx * sensitivity;
     tetraRotX += dy * sensitivity;
@@ -2539,6 +2594,7 @@
 
   function onTetraPointerUp() {
     tetraDragging = false;
+    tetraGestureMode = null;
   }
 
   canvas.addEventListener("pointerdown", onTetraPointerDown);
