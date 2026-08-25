@@ -29,13 +29,6 @@
          native scrolling (with full momentum) keep working everywhere
          else on the page, including everywhere else on the canvas. -->
     <div class="tetra-grab-zone" id="tetraGrabZone" hidden></div>
-    <!-- Floats directly beneath the win/loss banner (drawResultBanner,
-         positioned every render() by layoutPlayAgainButton) -- the CTA
-         to keep playing sits right where the eye already is after a
-         round resolves, not only down in the bottom control row. Same
-         element, same click handler as before; only its own DOM
-         position/CSS changed -- see script.js's own note. -->
-    <button id="gameNewRoundBtn" class="game-btn game-btn-primary play-again-floating" type="button" hidden>Play again</button>
     <!-- Both the legend card and the game's own controls are bottom-
          anchored as *one* flex stack (not two independently absolute-
          positioned elements): when the button row is shown, it should
@@ -47,9 +40,20 @@
       <!-- "Guess the Door" game controls -- the only new DOM in this
            piece. Plain buttons, shown/hidden by script.js as the game's
            own state machine (not scroll position) progresses; see
-           script.js's own "Guess the Door" section for why. -->
+           script.js's own "Guess the Door" section for why. gameOpenBtn
+           and gameNewRoundBtn are mutually exclusive (exactly one
+           hidden at all times, toggled together by syncGameControls) --
+           deliberately adjacent in DOM order, in that order, so that
+           whichever is visible occupies the same leading flex slot: a
+           round resolving hides "Open selected" and reveals "Play
+           again" in *precisely* the position the mouse was just
+           clicking, no cursor travel needed for another round. An
+           earlier version instead floated "Play again" as its own
+           element, positioned under the win/loss banner -- reverted;
+           reported directly as not actually where the mouse was. -->
       <div class="game-controls" id="gameControls" hidden>
         <button id="gameOpenBtn" class="game-btn game-btn-primary" type="button">Open selected</button>
+        <button id="gameNewRoundBtn" class="game-btn game-btn-primary" type="button" hidden>Play again</button>
         <button id="gameRevealBtn" class="game-btn" type="button" hidden>Reveal the cheat sheet</button>
       </div>
       <div class="legend" id="legend">

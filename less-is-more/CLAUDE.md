@@ -253,6 +253,29 @@ prose in the legend card only** — there is deliberately no attempt to
 visualize kernels/queries/checkmarks on the canvas for this part
 anymore (see "Things tried and reverted" below for why).
 
+### "Sometimes you skip straight from 'Play, blind' to 'Less is more'" — expected, not a bug
+
+Reported directly as "bizarre" — scrolling from `playArrive` to
+`summaryStart` sometimes shows every `GAME_PHASE_TEXT` card
+(`blind` → `cheatsheet` → `hinted`), sometimes only `blind`, jumping
+straight to `SUMMARY_TEXT` once `summaryStart` is crossed. This is
+inherent to the design, not a bug to fix: past `playArrive`, the legend
+follows `gamePhase` (real game state), not `t` — see `updateLegend()`'s
+own branch for `tGame < CHG.summaryStart`. `gamePhase` only ever
+advances by *playing* (resolving a round, revealing the cheat sheet,
+making a move); scrolling through that whole range without clicking
+anything leaves `gamePhase` at `'blind'` the entire time, so the *only*
+transition that scroll position itself can still trigger is the
+`tGame >= summaryStart` one, straight into `SUMMARY_TEXT` — skipping
+`cheatsheet`/`hinted` entirely, because those two were never reached by
+scroll in the first place. Scroll back down and actually play a round
+or two before scrolling past `summaryStart` again, and every card
+shows, in order. Flagged here explicitly since it's easy to mistake for
+nondeterministic/broken behavior if you don't already know the legend
+switches from `t` to `gamePhase` at `playArrive` — see this file's own
+note on that switch above (`CHG.playArrive`'s own comment in
+`script.js` says the same thing, at the point it actually happens).
+
 ## This session's redesign: merging the 2D board into the tetrahedron
 
 For a long time, this piece had **two separate visual representations**
@@ -557,7 +580,7 @@ blind round. Never randomized, never involved in real scoring.
   magnitude (`gameUnit * DOOR_DOT_RADIUS_MULT * 6.5`, floor 30px)
   unchanged from before, only the *direction* changed.
 
-### Signal below the shape; banner above; a floating "Play again" in between
+### Signal below the shape; banner above
 
 `aliceSignalPos()` used to double as the win/loss banner's own anchor
 (both "above the shape"). Now that the signal itself lives **below**
@@ -567,21 +590,13 @@ the banner needed its own, separate anchor: `resultBannerPos()`.
 `tallyPos()` moved further below the signal, to clear its own larger
 footprint without overlapping it.
 
-`resultBannerPos()`'s own offset (`TETRA_BOARD_RADIUS_MULT + X`) has
-grown twice since it was first extracted: `0.36` (matched
-`aliceSignalPos()`'s own old "above" value, unchanged banner
-appearance) → `0.46`, once a second banner line (the win/loss
-*reason*, see below) and a floating "Play again" button both needed
-to fit in the same space, above the shape but below this anchor. This
-is now the tightest vertical squeeze in the whole piece: measured
-directly (not guessed) at all four of this file's own standard
-viewports, `900×600` is tight on *both* sides at once (little headroom
-above the viewport's own top edge, little room below before the
-shape's own topmost point — the board fills the full viewport height
-there), so `0.46` is the largest value that still clears the top edge
-there with a little margin; growing it further would clip the banner
-itself off-screen on that viewport before it would meaningfully help
-anything below it.
+`resultBannerPos()`'s own offset (`TETRA_BOARD_RADIUS_MULT + X`) briefly
+grew from its original `0.36` to `0.46`, while a floating "Play again"
+button also needed to fit in this same space (see "'Play again'
+replaces 'Open selected'" below for that whole design, and why it was
+reverted) — back to `0.36` now that the button lives in the bottom row
+again; `0.36` is all the banner heading + its own explanatory reason
+line (see below) ever needed on their own.
 
 ### Win/loss banner now says *why*
 
@@ -596,38 +611,56 @@ the dud is what actually lost it), reset to `null` alongside
 draws a second, smaller line right under the main verdict via a small
 `RESULT_REASON_TEXT` lookup table.
 
-### Floating "Play again" button, right under the banner
+### "Play again" replaces "Open selected" in place (bottom row)
 
-Moved out of `.game-controls` (the bottom button row) entirely, into
-its own top-level element (`.play-again-floating` in
-`index.html`/`style.css`) positioned every `render()` by
-`layoutPlayAgainButton(t)` — the same "recompute from scratch every
-render, don't couple to a specific past draw call" pattern
-`layoutTetraGrabZone` already uses, not a value read back from
-`drawResultBanner`'s own draw call. Reported directly: the CTA to keep
-playing belongs right where the eye already is after a round resolves,
-not only down in the bottom row. Horizontal centering is free (`left:
-50%` in CSS — `resultBannerPos().x` is always exactly the viewport's
-own horizontal center); only `top` is set from JS. Deliberately more
-compact than the other `.game-btn` instances (smaller font/padding) —
-see `resultBannerPos()`'s own note above on just how little vertical
-room this has to fit in on this piece's tightest viewports.
-`syncGameControls()` no longer touches this button at all; it's fully
-owned by `layoutPlayAgainButton`.
+Went through two designs this session, in order — worth knowing both,
+since the first is exactly the kind of thing to *not* redo without a
+new reason:
 
-**Font-family bug, caught right after**: `.game-btn` sets `font-family:
-inherit`, which worked fine back when this button lived inside
-`.game-controls` (which sets the real font list) — once moved to be a
-sibling of `.game-controls` instead (a direct child of `.pinned`),
-inheriting from *this* element's own ancestor chain fell through to
-the browser's plain default font, reported directly as looking
-mismatched from every other piece of text on the page. Fixed by
-setting `font-family` explicitly on `.play-again-floating` itself (the
-same list `.game-controls`/`.legend` already use) rather than relying
-on inheriting it from a specific parent — the general lesson: moving an
-element to a new place in the DOM tree can silently change what
-`inherit` resolves to for *any* property that was relying on a specific
-ancestor, not just layout-related ones.
+1. **Floating, under the banner.** Moved `#gameNewRoundBtn` out of
+   `.game-controls` entirely, into its own top-level element
+   (`.play-again-floating`) positioned every `render()` by a
+   `layoutPlayAgainButton(t)` function, directly beneath the win/loss
+   banner. Picked up its own font-family bug along the way (`.game-btn`
+   sets `font-family: inherit`, which stopped resolving to the real
+   font list once this button was no longer a descendant of
+   `.game-controls`) — fixed at the time, but moot once reverted.
+   **Reported directly as not actually where the mouse was** — the
+   whole point was to save the player a cursor trip, and floating it
+   under the banner didn't do that; the mouse is on "Open selected," in
+   the *bottom* row, the instant a round resolves.
+2. **Current: back in `.game-controls`, replacing "Open selected" in
+   its exact slot.** `#gameOpenBtn` and `#gameNewRoundBtn` are
+   mutually exclusive — `syncGameControls()` sets
+   `gameOpenBtn.hidden = roundResolved` and `gameNewRoundBtn.hidden =
+   !roundResolved`, never both visible — and adjacent in DOM order, so
+   whichever is visible occupies the same leading flex slot. `layout
+   PlayAgainButton`/`.play-again-floating` are both gone entirely (dead
+   code deleted, not left disabled); `resultBannerPos()`'s own offset
+   reverted from `0.46` back to its simpler original `0.36`, since only
+   the banner + reason line need room there now, not a button too.
+
+**Getting the *exact* slot right needed one more fix**: `.game-controls`
+uses `justify-content: center`, so simply toggling `hidden` on
+same-position-in-DOM-order buttons isn't enough on its own if the two
+buttons are different widths — "Play again" is shorter text than "Open
+selected," and swapping one for the other re-centered the whole row,
+shifting the visible button sideways by several dozen px (measured
+directly: ~80–95px at 900×700, enough to leave the mouse well outside
+the new button entirely — the opposite of the goal). Fixed with a
+shared `min-width: 132px` on both (`"Open selected"`'s own natural
+width, rounded up) so the slot itself never changes size, regardless of
+which of the two currently fills it. Confirmed directly, across two
+different scenarios: swapping when *nothing else* in the row changes
+(the ordinary, repeated round-after-round case, once the cheat sheet
+is already revealed and "Reveal the cheat sheet" never reappears) lands
+at `dx = 0`; the *one* exception is the very first reveal, where
+"Reveal the cheat sheet" *also* appears in the same row at the same
+moment "Open selected" → "Play again" swaps — that third button
+genuinely changes the row's own total width no matter how the first
+two are sized, so that one specific, one-time transition still shifts
+slightly. Accepted as a rare, one-time exception, not chased further —
+the repeated-play loop this was actually about is exact.
 
 ### Selected-door color: bright white, not blue, and not shaded either
 
@@ -766,6 +799,31 @@ primitive.
   re-triggering bug above — the first version's own test suite only
   ever checked a single round, which is exactly why that bug shipped
   initially undetected.
+
+### Legend copy: `cheatsheet` instruction-first; a "claudism" cut from the close
+
+`GAME_PHASE_TEXT.cheatsheet`'s own body used to lead with the
+tetrahedron explanation and only mention playing "a few more rounds" as
+an afterthought at the end. **Inverted**, on request: now leads with
+the concrete action (`"Click the three doors connected to the glowing
+corner, and you'll win every time."`), *then* the tetrahedron
+explanation — and that explanation itself was rewritten to state the
+actual guarantee explicitly (`"No matter which door turns out to hide
+the prize and which hides the dud, one of those 4 corners always
+connects to the prize without also connecting to the dud"`) rather than
+just describing the shape's own labeling scheme without saying *why*
+that guarantee holds for every possible secret, not just the current
+one.
+
+`SUMMARY_TEXT`'s own closing sentence — `"Agree on the list once, and
+it covers every situation that comes up — a weather report, or a door
+with a prize behind it."` — was cut entirely, flagged directly as a
+"claudism": a wrap-up flourish that restates the piece's own broader
+theme (the list serves both this game *and* the weather-sentence
+example from phase 1) right at the very end, in a way that reads as
+generated filler rather than doing real work the two sentences before
+it hadn't already done. The card now ends on the concrete "three safe
+doors, one the true prize" point instead.
 
 ## Things tried and explicitly reverted (don't redo these without a new reason)
 

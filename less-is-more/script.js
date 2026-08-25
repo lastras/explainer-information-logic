@@ -442,7 +442,7 @@
     cheatsheet: {
       heading: "The short list, made concrete",
       body:
-        "This is the same short list from before, made concrete. What you've been rotating this whole time is a tetrahedron: each of its 4 corners, now labeled with one of Alice's own 2-bit codes, is a candidate kernel; each edge \u2014 drawn as a small cube \u2014 is one of the 6 doors, sitting exactly where its two corners meet. Try a few more rounds with the code in hand.",
+        "Click the three doors connected to the glowing corner, and you'll win every time. What you've been rotating this whole time is a tetrahedron: each of its 4 corners, now labeled with one of Alice's own 2-bit codes, is a candidate kernel, and each edge \u2014 drawn as a small cube \u2014 is one of the 6 doors, sitting exactly where its two corners meet. No matter which door turns out to hide the prize and which hides the dud, one of those 4 corners always connects to the prize without also connecting to the dud.",
     },
     hinted: {
       heading: "Play, with the code",
@@ -458,7 +458,7 @@
   const SUMMARY_TEXT = {
     heading: "Less is more",
     body:
-      "That short, pre-agreed list is the whole trick: it lets Alice send less than either obvious strategy, and it leaves Bob knowing more than she actually had to tell him. Concretely, in this game: the 2-bit code hands you three safe doors to open at once \u2014 one of them the true prize \u2014 genuinely more than the single door that was strictly enough. Agree on the list once, and it covers every situation that comes up \u2014 a weather report, or a door with a prize behind it.",
+      "That short, pre-agreed list is the whole trick: it lets Alice send less than either obvious strategy, and it leaves Bob knowing more than she actually had to tell him. Concretely, in this game: the 2-bit code hands you three safe doors to open at once \u2014 one of them the true prize \u2014 genuinely more than the single door that was strictly enough.",
   };
 
   // ---- Palette -------------------------------------------------------------
@@ -2544,21 +2544,16 @@
   // Above the shape -- the same anchor aliceSignalPos() itself used to
   // use, before the signal moved below (see that function's own note).
   // Extracted into its own named function so the win/loss banner's
-  // position stays independent of wherever the signal now sits. The
-  // 0.36 offset (was the *only* offset here, unchanged, when this was
-  // still just a one-line "You win!!"/"You lose!" banner) grew to 0.46
-  // once the explanatory reason line and the floating "Play again"
-  // button both needed to fit in the same space, above the shape but
-  // below this anchor -- checked directly, by measuring the shape's own
-  // topmost extent and the viewport's own top edge at each of this
-  // file's four standard viewports (900x700, 390x844, 900x600, 360x740):
-  // 900x600 is the tightest on *both* sides at once (the board fills
-  // the full viewport height there), so there's no offset that gives
-  // generous room everywhere -- 0.46 is the largest value that still
-  // clears the viewport's own top edge there with a little margin.
+  // position stays independent of wherever the signal now sits. Grew
+  // briefly to 0.46 (from its original 0.36) while a floating "Play
+  // again" button also needed to fit in this same space -- that button
+  // moved back to the bottom control row instead (see
+  // syncGameControls's own note), so this reverted to the original
+  // 0.36, which is all the heading + explanatory reason line
+  // (drawResultBanner, below) ever needed on their own.
   function resultBannerPos() {
     const c = gameToBoard(0, 0);
-    return { x: c.x, y: c.y - gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.46) };
+    return { x: c.x, y: c.y - gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.36) };
   }
 
   // The specific reason behind lastRoundReason, in plain language --
@@ -2594,37 +2589,6 @@
       color,
       glowColor: color,
     });
-  }
-
-  // Positions the floating "Play again" button (index.html's own
-  // `.play-again-floating`) directly beneath the win/loss banner --
-  // encourages another round right where the eye already is after a
-  // round resolves, rather than only down in the bottom control row.
-  // Independently recomputes the banner's own rendered height (matching
-  // drawResultBanner's own `y`/gap/sizeMult exactly) rather than reading
-  // it back from that draw call -- the same "recompute, don't couple to
-  // a specific past render" approach layoutTetraGrabZone below already
-  // uses. Horizontal centering is handled by the element's own CSS
-  // (`left: 50%` -- resultBannerPos().x is always exactly the viewport's
-  // own horizontal center, see that function's note); only `top` needs
-  // setting here.
-  function layoutPlayAgainButton(t) {
-    const show = isGameInteractive(t) && roundResolved && lastRoundWin !== null;
-    gameNewRoundBtn.hidden = !show;
-    if (!show) return;
-    const sp = resultBannerPos();
-    const y = sp.y - gameUnit * 0.16;
-    const reasonLineHeight = baseFontSize() * 0.75 * 1.35; // sizeMult, lineHeightMult -- both match drawResultBanner's own reason-line call
-    const bannerBottom = y + gameUnit * 0.05 + reasonLineHeight;
-    // The gap between the reason line and the shape's own topmost point
-    // is genuinely tight on this piece's own tightest viewports (900x600,
-    // 360x740 -- see resultBannerPos()'s own note on why 0.46 is already
-    // as far as that offset can go without clipping the viewport's top
-    // edge instead). A small, fixed gap here, plus the button's own
-    // compact size (.play-again-floating in style.css), is what actually
-    // fits -- checked directly at all four of this file's standard
-    // viewports, not just the common desktop case.
-    gameNewRoundBtn.style.top = `${bannerBottom + gameUnit * 0.06}px`;
   }
 
   // Alice's 2-bit signal, shown directly as its own binary code -- the
@@ -2702,11 +2666,15 @@
   function syncGameControls(interactive) {
     gameControlsEl.hidden = !interactive;
     if (!interactive) return;
-    gameOpenBtn.disabled = selectedDoors.size === 0 || roundResolved;
+    // gameOpenBtn/gameNewRoundBtn are mutually exclusive -- exactly one
+    // hidden at all times -- so that whichever is visible sits in the
+    // same leading flex slot (see index.html's own note): resolving a
+    // round hides "Open selected" and reveals "Play again" in
+    // precisely the position the mouse was just clicking.
+    gameOpenBtn.hidden = roundResolved;
+    gameOpenBtn.disabled = selectedDoors.size === 0;
+    gameNewRoundBtn.hidden = !roundResolved;
     gameRevealBtn.hidden = !(roundResolved && !cheatsheetRevealed);
-    // gameNewRoundBtn's own hidden/position is handled by
-    // layoutPlayAgainButton instead -- it's no longer part of this
-    // bottom row (see index.html's own note).
   }
 
   function drawScene(tOuter) {
@@ -2781,7 +2749,6 @@
 
     ctx.restore();
     syncGameControls(isGameInteractive(t));
-    layoutPlayAgainButton(t);
   }
 
   // ---- Tetrahedron auto-spin: the one thing in this file driven by

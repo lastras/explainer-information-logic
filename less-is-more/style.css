@@ -197,33 +197,19 @@ html, body {
   border-color: rgba(184, 255, 250, 0.55);
 }
 
-/* Floats directly beneath the win/loss banner, positioned every
-   render() by script.js's own layoutPlayAgainButton -- horizontal
-   centering is the one thing that's always exactly 50% of the viewport
-   (resultBannerPos().x always equals cw/2 -- see that function's own
-   note), so only `top` needs setting from JS, the same `left: 50%` +
-   `transform: translateX(-50%)` pattern .bottom-stack above already
-   uses. No `display` override needed here (unlike .game-controls) --
-   this class never sets `display` itself, so the browser's own default
-   `[hidden] { display: none }` rule is never outranked. */
-.play-again-floating {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  /* .game-btn's own `font-family: inherit` inherited correctly back
-     when this button lived inside .game-controls (which sets the real
-     font list); now that it's a sibling of .game-controls instead (a
-     direct child of .pinned), inheriting from *this* element's own
-     ancestor chain falls through to the browser's plain default font
-     instead -- reported directly. Set explicitly here, the same list
-     .game-controls/.legend already use, rather than relying on
-     inheriting it from a specific parent. */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  /* Deliberately more compact than the other .game-btn instances --
-     the gap between the reason line and the shape's own topmost point
-     is genuinely tight on this piece's own shortest/narrowest
-     viewports (see layoutPlayAgainButton's own note in script.js); a
-     smaller footprint here is what actually clears it. */
-  font-size: 0.78rem;
-  padding: 0.32rem 0.7rem;
+/* #gameOpenBtn and #gameNewRoundBtn are mutually exclusive -- exactly
+   one hidden at all times (see script.js's own syncGameControls) --
+   and meant to occupy the *exact same* on-screen slot when swapped, so
+   the mouse is already positioned over "Play again" the instant a
+   round resolves. `justify-content: center` on their shared parent
+   (.game-controls) means that only holds if the two buttons are
+   themselves the same width -- "Play again" is shorter text than
+   "Open selected," and without this, swapping one for the other
+   re-centered the whole row and shifted the visible button sideways by
+   several dozen px, measured directly, not just eyeballed. 132px is
+   "Open selected"'s own natural width (measured at this font-size),
+   rounded up slightly. */
+#gameOpenBtn,
+#gameNewRoundBtn {
+  min-width: 132px;
 }
