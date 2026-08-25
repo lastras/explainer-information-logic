@@ -216,12 +216,12 @@ recompute if you touch `LEGACY_END`/track height again):
 | `tGame` | Boundary name | What happens |
 |---|---|---|
 | 0 → 0.05 | `transitionEnd` | "Let's demonstrate this with a game" — phase 1's own diagram/tile/chart fade out together, one shot |
-| → 0.1333 | `doorsEnd` | "Six doors, two that matter" — the tetrahedron itself fades in (wireframe + 6 door-cubes, at its default `TETRA_ALIGN_X/Y` pose — see below) |
+| → 0.1333 | `doorsEnd` | "Six doors, two that matter" — the tetrahedron itself fades in (wireframe + 6 door-cubes, at its default `TETRA_ALIGN_X/Y` pose — see below) and becomes *draggable* (not yet tappable — see `playArrive`) |
 | → 0.2167 | `scoopEnd` | "Alice has the scoop" |
 | → 0.3 | `obviousEnd` | "The most obvious option" — tell Bob everything, ~4.9 bits (log₂30) |
 | → 0.4 | `enoughEnd` | "But you don't need all that" — naming just the prize door alone is enough, ~2.58 bits (log₂6); teases "something better" |
 | → 0.5 | `signalEnd` | "Alice's signal" — reveals 2 bits (log₂4); the 2-dot signal indicator fades in |
-| → 0.5833 | `playArrive` | Interactive game begins — see below; board stops following `t`, becomes draggable+tappable, **with no upper bound ever again** |
+| → 0.5833 | `playArrive` | Interactive game begins — see below; board stops following `t`, becomes *tappable* (it's already been draggable since `doorsEnd` — see "This session's redesign") |
 | → 0.9333 | `summaryStart` | Legend switches to the closing "Less is more" card; the tetrahedron keeps sitting there, exactly as draggable/tappable as a moment before |
 
 There used to be two more rows here — `tetraStart` (a 2D→3D crossfade)
@@ -285,9 +285,24 @@ any of it again:
   `isTetraActive()` and `hasReachedGame()` (two other predicates that
   used to exist *specifically* to disagree with `isGameInteractive()`
   about the upper bound — see the historical bug entry below) collapsed
-  into it. `layoutTetraGrabZone`'s own active-window check, and
-  `render()`'s "scrolled backward out of the game, reset everything"
-  check, both just call `isGameInteractive()` directly now.
+  into it. `render()`'s own "scrolled backward out of the game, reset
+  everything" check calls `isGameInteractive()` directly.
+  `layoutTetraGrabZone`'s own active-window check does **not** — see the
+  next bullet, a follow-up refinement made right after this redesign
+  first shipped.
+- **Rotating and door-tapping ended up needing two different gates
+  after all, just not the old `tetraStart` one.** Reported directly:
+  freezing the shape until `playArrive` felt wrong, since it's already
+  a concrete 3D object the *earlier* "Six doors, two that matter" ..
+  "Alice's signal" walk-through cards are describing. Added
+  `isBoardVisible(tOuter)` (true from `doorsEnd`, no upper bound,
+  broader than `isGameInteractive()`) to gate `layoutTetraGrabZone`
+  specifically, so dragging works through that whole earlier stretch.
+  Door-*tapping* stays gated by the narrower `isGameInteractive()`
+  though — checked separately, inside `onTetraPointerUp` itself, right
+  before the hit-test/toggle — since there's no secret/round yet for a
+  tap to act on before `playArrive`. A pre-`playArrive` tap simply
+  rotates (a near-zero-movement drag) and does nothing further.
 - **A door's own cube is always full-size** (`TETRA_CUBE_HALF`, no
   `zHalf`/`cubeZHalf` parameter anymore) — no more flat-to-cube
   thickening, since there's no separate reveal moment left to thicken
@@ -412,10 +427,13 @@ before touching. This *is* the board, not a separate later reveal (see
   Events** (`pointerdown`/`pointermove`/`pointerup`/`pointercancel`),
   one code path for mouse/touch/pen, `tetraGrabZone.setPointerCapture()`
   so a drag keeps working even if the pointer leaves the small grab
-  zone mid-gesture. Gated by `isGameInteractive()` (`layoutTetraGrabZone`
-  hides the zone entirely outside that window) — see "This session's
-  redesign" above for the tap-vs-drag disambiguation logic itself
-  (`tetraGestureDist` vs. `TETRA_TAP_MAX_PX`).
+  zone mid-gesture. The grab zone itself (`layoutTetraGrabZone`) is
+  gated by the *broader* `isBoardVisible()` (from `doorsEnd`) — dragging
+  works well before the game itself does; `onTetraPointerUp`'s own
+  tap-to-toggle branch checks the *narrower* `isGameInteractive()`
+  (from `playArrive`) separately. See "This session's redesign" above
+  for the tap-vs-drag disambiguation logic itself (`tetraGestureDist`
+  vs. `TETRA_TAP_MAX_PX`).
 - **Honest limits, not overclaimed**: the resting pose matches the old,
   since-deleted flat 2D hexagon *closely*, not pixel-perfectly —
   perspective projection still introduces a small size difference
