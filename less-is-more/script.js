@@ -442,7 +442,7 @@
     cheatsheet: {
       heading: "The short list, made concrete",
       body:
-        "Click the three doors connected to the glowing corner, and you'll win every time. What you've been rotating this whole time is a tetrahedron: each of its 4 corners, now labeled with one of Alice's own 2-bit codes, is a candidate kernel, and each edge \u2014 drawn as a small cube \u2014 is one of the 6 doors, sitting exactly where its two corners meet. No matter which door turns out to hide the prize and which hides the dud, one of those 4 corners always connects to the prize without also connecting to the dud.",
+        "Click the three doors touching the glowing corner to win every time. Each corner carries one of Alice's codes; each door sits where two corners meet. Whatever the prize and dud turn out to be, some corner always touches the prize but not the dud.",
     },
     hinted: {
       heading: "Play, with the code",
@@ -458,7 +458,7 @@
   const SUMMARY_TEXT = {
     heading: "Less is more",
     body:
-      "That short, pre-agreed list is the whole trick: it lets Alice send less than either obvious strategy, and it leaves Bob knowing more than she actually had to tell him. Concretely, in this game: the 2-bit code hands you three safe doors to open at once \u2014 one of them the true prize \u2014 genuinely more than the single door that was strictly enough.",
+      "This is the \u201CLess is More\u201D theorem, worked out concretely: a short, pre-agreed list lets Alice send less, yet leaves Bob knowing more. Here, the code hands you three safe doors at once \u2014 one the true prize \u2014 more than the single door strictly needed.",
   };
 
   // ---- Palette -------------------------------------------------------------

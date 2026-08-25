@@ -832,30 +832,50 @@ primitive.
   way — variance stayed large (~500) through both selections, dropping
   to exactly `0` only after actually opening.
 
-### Legend copy: `cheatsheet` instruction-first; a "claudism" cut from the close
+### Legend copy: `cheatsheet` instruction-first, then much shorter; `SUMMARY_TEXT` names the theorem, not a "trick"
 
 `GAME_PHASE_TEXT.cheatsheet`'s own body used to lead with the
 tetrahedron explanation and only mention playing "a few more rounds" as
-an afterthought at the end. **Inverted**, on request: now leads with
-the concrete action (`"Click the three doors connected to the glowing
-corner, and you'll win every time."`), *then* the tetrahedron
-explanation — and that explanation itself was rewritten to state the
-actual guarantee explicitly (`"No matter which door turns out to hide
-the prize and which hides the dud, one of those 4 corners always
-connects to the prize without also connecting to the dud"`) rather than
+an afterthought at the end. **Inverted** first: leads with the concrete
+action, *then* the tetrahedron explanation — which itself was rewritten
+to state the actual guarantee explicitly (some corner always connects
+to the prize without the dud, for *any* possible secret) rather than
 just describing the shape's own labeling scheme without saying *why*
-that guarantee holds for every possible secret, not just the current
-one.
+that guarantee holds.
 
-`SUMMARY_TEXT`'s own closing sentence — `"Agree on the list once, and
+**Then reported directly as still too long — on mobile specifically,
+covering part of the tetrahedron and the button row.** This was the
+piece's own longest card by a wide margin (~90 words, three sentences)
+at exactly the moment `.bottom-stack`'s own budget is tightest (see the
+chapter table's own notes on how little vertical room this piece has
+to work with on short/narrow viewports). Cut to ~45 words/three short
+sentences — action, structure, guarantee, each in one sentence, no
+sentence doing double duty:
+`"Click the three doors touching the glowing corner to win every time.
+Each corner carries one of Alice's codes; each door sits where two
+corners meet. Whatever the prize and dud turn out to be, some corner
+always touches the prize but not the dud."` Verified directly (not just
+shortened and hoped): at both 390×844 and 360×740, the legend card's
+own top edge sits below the button row's own bottom edge, and the
+button row's own top edge sits below the tetrahedron's own hit-zone
+bottom edge — no overlap in either direction, measured via
+`getBoundingClientRect()`, not eyeballed.
+
+`SUMMARY_TEXT` went through the same length cut, plus a separate
+wording fix: its own closing sentence — `"Agree on the list once, and
 it covers every situation that comes up — a weather report, or a door
-with a prize behind it."` — was cut entirely, flagged directly as a
-"claudism": a wrap-up flourish that restates the piece's own broader
-theme (the list serves both this game *and* the weather-sentence
-example from phase 1) right at the very end, in a way that reads as
-generated filler rather than doing real work the two sentences before
-it hadn't already done. The card now ends on the concrete "three safe
-doors, one the true prize" point instead.
+with a prize behind it."` — was cut entirely first, flagged directly as
+a "claudism" (a wrap-up flourish restating the piece's own broader
+theme in a way that reads as generated filler, not doing real work the
+sentences before it hadn't already done). Later, the *remaining* text's
+own opening — `"That short, pre-agreed list is the whole trick..."` —
+was reported as undercutting the result: `"trick"` reads as a clever
+hack, when this is the paper's own **named theorem** (`"Less is More"`,
+already named as such in phase 1's own "This is what 'Less' means"
+card). Current text opens by naming it directly: `"This is the 'Less
+is More' theorem, worked out concretely: ..."`, then closes on the same
+concrete "three safe doors, one the true prize" point as before, just
+shorter.
 
 ### Strengthening the sense of depth: a tighter lens, plus depth fog
 
