@@ -958,16 +958,29 @@
   // holds exactly still otherwise, the same "static unless something
   // changes" rule every other piece of interactive state in this file
   // already follows. Starts at TETRA_REST_X/Y (this file's own hand-
-  // picked "reads as 3D immediately" pose) as a harmless default; the
-  // scroll-driven sweep (CHG.tetraStart..tetraSweepEnd) doesn't actually
-  // read these two variables at all -- it interpolates its own angles
-  // directly -- and overwrites them with that same TETRA_REST_X/Y pose
-  // exactly once, the first time tGame reaches tetraSweepEnd (see
-  // tetraSweepHandedOff below), so dragging picks up from wherever the
-  // sweep left off with no visible jump.
+  // picked "reads as 3D immediately" pose) as a harmless default.
+  //
+  // tetraSweepHandedOff: whether control has passed from the
+  // scroll-driven sweep (CHG.tetraStart..tetraSweepEnd, which
+  // interpolates its own angles directly and never reads tetraRotX/Y at
+  // all) to the user's own drag. This can now happen two ways -- reached
+  // naturally, at tetraSweepEnd, *or* triggered early by the user simply
+  // grabbing the shape mid-sweep (onTetraPointerDown) -- so that dragging
+  // is never blocked just because the auto-sweep hasn't finished yet
+  // (originally it was, and that was reported directly as confusing: a
+  // nicely-animating shape that's nonetheless "impossible to move
+  // manually"). Either way, tetraRotX/Y is set to whatever angle was
+  // actually on screen the instant of handoff (tetraLastAngleX/Y, see
+  // drawGameScene), so there's never a visible jump grabbing early vs.
+  // late. Re-armed only on scrolling back out of the reveal entirely
+  // (tGame < CHG.tetraStart), not on every frame the sweep is still
+  // playing -- otherwise an early grab would be immediately un-done by
+  // the sweep's own next frame still thinking it's in charge.
   let tetraRotX = TETRA_REST_X;
   let tetraRotY = TETRA_REST_Y;
   let tetraSweepHandedOff = false;
+  let tetraLastAngleX = TETRA_REST_X;
+  let tetraLastAngleY = TETRA_REST_Y;
   let tetraDragging = false;
   let tetraLastPointerX = 0;
   let tetraLastPointerY = 0;
@@ -2351,20 +2364,29 @@
 
     // The sweep: scroll-driven rotation away from the aligned starting
     // angle, and cubes thickening from flat, together making the shape's
-    // own 3D-ness undeniable before control passes to a drag. A state
-    // transition (the one-shot handoff to drag control) detected here,
-    // in the same top-level scene function that already detects
-    // render()'s own wasInteractive transition, rather than buried
-    // inside a supposedly-pure drawing function.
+    // own 3D-ness undeniable before control passes to a drag. Handoff
+    // can happen two ways -- reached naturally here, at tetraSweepEnd,
+    // *or* triggered early by onTetraPointerDown if the user grabs the
+    // shape mid-sweep (see tetraSweepHandedOff's own note) -- so this
+    // only ever *drives* the sweep while it's still actually in charge;
+    // once handed off (either way), it just keeps reading tetraRotX/Y
+    // like every frame after tetraSweepEnd always has.
+    // Re-armed only on leaving the reveal entirely (scrolling back
+    // before tetraStart), not on every sweep-in-progress frame -- that
+    // would immediately undo an early grab the very next frame, since
+    // tGame is still < tetraSweepEnd for the rest of the sweep either
+    // way.
+    if (tGame < CHG.tetraStart) tetraSweepHandedOff = false;
+
     let tetraAngleX, tetraAngleY, tetraCubeZHalf;
-    if (tGame < CHG.tetraSweepEnd) {
+    if (!tetraSweepHandedOff && tGame < CHG.tetraSweepEnd) {
       const sweepProgress = smoothstep(CHG.tetraStart, CHG.tetraSweepEnd, tGame);
       tetraAngleX = lerp(TETRA_ALIGN_X, TETRA_REST_X, sweepProgress);
       tetraAngleY = lerp(TETRA_ALIGN_Y, TETRA_REST_Y, sweepProgress);
       tetraCubeZHalf = lerp(0, TETRA_CUBE_HALF, sweepProgress);
-      tetraSweepHandedOff = false; // re-armed if scrolled back before the handoff
     } else {
       if (!tetraSweepHandedOff) {
+        // Reached tetraSweepEnd naturally, without an early grab.
         tetraRotX = TETRA_REST_X;
         tetraRotY = TETRA_REST_Y;
         tetraSweepHandedOff = true;
@@ -2373,6 +2395,8 @@
       tetraAngleY = tetraRotY;
       tetraCubeZHalf = TETRA_CUBE_HALF;
     }
+    tetraLastAngleX = tetraAngleX;
+    tetraLastAngleY = tetraAngleY;
     drawTetrahedronReveal(tetraAlpha, tetraAngleX, tetraAngleY, tetraCubeZHalf);
   }
 
@@ -2562,7 +2586,12 @@
   const TETRA_HIT_RADIUS_MULT = 1.3;
 
   function layoutTetraGrabZone(t) {
-    const active = isTetraActive(t) && tGameOf(t) >= CHG.tetraSweepEnd;
+    // Active from tetraStart itself, not tetraSweepEnd: the shape is
+    // draggable as soon as it's visible at all, including mid-sweep --
+    // see onTetraPointerDown's own early-handoff note for why waiting
+    // for the sweep to finish first was reported as confusing ("rotating
+    // quite nicely" on its own, but "impossible to move it manually").
+    const active = isTetraActive(t);
     tetraGrabZone.hidden = !active;
     if (!active) return;
     const c = gameToBoard(0, 0);
@@ -2595,6 +2624,18 @@
 
   function onTetraPointerDown(e) {
     if (tetraDragging) return;
+    // Grabbing the shape mid-sweep (before tGame naturally reaches
+    // tetraSweepEnd) hands off control right now instead of waiting --
+    // see tetraSweepHandedOff's own note for why. tetraLastAngleX/Y is
+    // whatever drawGameScene actually rendered last frame, so this never
+    // produces a visible jump: dragging always continues from wherever
+    // the shape already visually was, whether that's mid-sweep or
+    // already at rest.
+    if (!tetraSweepHandedOff) {
+      tetraRotX = tetraLastAngleX;
+      tetraRotY = tetraLastAngleY;
+      tetraSweepHandedOff = true;
+    }
     tetraDragging = true;
     tetraActivePointerId = e.pointerId;
     tetraLastPointerX = e.clientX;
