@@ -239,7 +239,7 @@ recompute if you touch `LEGACY_END`/track height again):
 | → 0.2167 | `scoopEnd` | "Alice has the scoop" — the two fixed illustrative doors (prize + dud) are highlighted, color + word label (`illustrativeHighlightPhase` returns `'both'` from here through `obviousEnd`) |
 | → 0.3 | `obviousEnd` | "The most obvious option" — tell Bob everything, ~4.9 bits (log₂30); illustrative highlight still `'both'` through here |
 | → 0.4 | `enoughEnd` | "But you don't need all that" — naming just the prize door alone is enough, ~2.58 bits (log₂6); teases "something better"; illustrative highlight narrows to `'prizeOnly'` from here through `playArrive` |
-| → 0.5 | `signalEnd` | "Alice's signal" — reveals 2 bits (log₂4); the signal indicator fades in **below** the shape now (larger font too — see "Tetrahedron auto-spin..." session notes below); illustrative highlight still `'prizeOnly'` |
+| → 0.5 | `signalEnd` | "Alice's signal" — reveals 2 bits (log₂4); the signal indicator fades in **below** the shape now (larger font too — see "Tetrahedron auto-spin..." session notes below); illustrative highlight still `'prizeOnly'`. Body text rewritten to be self-contained (no longer opens with "Just 2 bits, *in fact*," a backreference to the *previous* card's own "something even better" — reported directly) |
 | → 0.5833 | `playArrive` | Interactive game begins — see below; board stops following `t`, becomes *tappable* (it's already been draggable since `doorsEnd` — see "This session's redesign"); illustrative highlight goes `'none'` for good; the auto-spin, if not already cancelled by a drag, keeps running until it next crosses `TETRA_ALIGN_Y`, then snaps to rest |
 | → 0.9333 | `summaryStart` | Legend switches to the closing "Less is more" card (now names the concrete "More" payoff: the code hands you three safe doors, one the true prize); the tetrahedron keeps sitting there, exactly as draggable/tappable as a moment before |
 
@@ -655,6 +655,18 @@ itself, and the normal per-face lighting, are both untouched everywhere
 else (the wireframe edges, phase 1's diagrams, every other door state)
 — `fullBright` is a narrow, single-branch override.
 
+**A follow-up, for even more contrast**: the default (unselected,
+unopened) door fill also got its own dedicated, darker color —
+`DOOR_NEUTRAL_COLOR_HEX` (`#7f8a8d`), not `NEUTRAL_HEX` (`#dfe8ea`,
+left completely untouched — still used for the vertex dots, phase 1's
+diagrams, and everything else that always used it). Requested directly
+("make the boxes a little darker"): once the selected color renders
+`fullBright`, an ordinary door sitting closer to white than it needs to
+on the brightness scale narrows the very gap the highlight depends on.
+A narrow substitution again, exactly parallel to `SELECTED_DOOR_COLOR`'s
+own — only `drawGameBoard`'s own default `color = ...` for a door cube
+changed; the vertex dots' own glow (`drawGlow`) still reads `NEUTRAL`.
+
 ### Auto-spin rotation axis: a wobble, not a flat pin — and what it broke
 
 Holding `tetraRotX` perfectly fixed at `TETRA_ALIGN_X` throughout the
@@ -703,12 +715,24 @@ primitive.
   `selectedDoors` instead re-arms naturally every time `resetRound()`
   clears it, at the start of *every* round, not just the first.
 - `CHEATSHEET_PULSE_PERIOD_S` (3.5s), `CHEATSHEET_PULSE_SPEED`
-  (`2*PI / period`), `CHEATSHEET_PULSE_AMPLITUDE`. A gentle multi-second
+  (`2*PI / period`), `CHEATSHEET_PULSE_AMPLITUDE` (`0.75`, i.e. grows
+  up to +75% of the dot's own base radius). A gentle multi-second
   breathing cycle, deliberately not a fast flash — but a *big* swing:
-  an initial ±40% amplitude was reported directly as still too subtle
-  to reliably notice; **±75%** is the current value. Tuned by watching
-  it over several cycles, not from a single screenshot (a pulse is
-  inherently a multi-frame thing to judge).
+  an initial ±40% amplitude, symmetric around the base radius, was
+  reported directly as still too subtle to reliably notice; widened to
+  ±75% next — then reported a *second* time as the dot shrinking "way
+  too small" at its own trough (a symmetric swing means it dips as low
+  as `dotR * 0.25`, a quarter its resting size). **The wave's own shape
+  changed, not just the number**: `glowR = dotR * (1 +
+  CHEATSHEET_PULSE_AMPLITUDE * wave)`, where `wave = (1 - cos(phase)) /
+  2` — a raised cosine ranging `[0, 1]`, not a plain sine ranging
+  `[-1, 1]`. `glowR` now only ever grows *larger* than `dotR`, bottoming
+  out at exactly `dotR` (verified directly: the multiplier's own range
+  across many full cycles is exactly `[1, 1.75]`, checked numerically in
+  Node, not just eyeballed) — "have it become larger/smaller only to
+  the original size when smallest," requested in those terms. Tuned by
+  watching it over several cycles, not from a single screenshot (a
+  pulse is inherently a multi-frame thing to judge).
 - Reads real time via `lastFrameNowMs` (set at the top of `frame(now)`,
   every frame) rather than having a parameter threaded through
   `drawScene`/`drawGameScene`/`drawGameBoard` — the same "module-level

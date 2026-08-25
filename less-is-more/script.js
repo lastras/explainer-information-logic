@@ -422,7 +422,7 @@
       from: CHG.enoughEnd,
       heading: "Alice's signal",
       body:
-        "Just 2 bits, in fact. Throughout the game, Alice will communicate with you through this signal, shown here as its own binary code \u2014 though it means nothing on its own until you also have a shared list to decode it.",
+        "Alice's signal is just 2 bits, shown here as its own binary code. She broadcasts it continuously throughout the game \u2014 but it means nothing on its own until you also have a shared list to decode it.",
     },
   ];
 
@@ -490,6 +490,15 @@
   // directly as confusable with an ordinary, unselected door. Plain
   // white contrasts clearly against gray at every shading level.
   const SELECTED_DOOR_COLOR_HEX = "#ffffff";
+  // A door's own *default* (unselected, unopened) fill -- deliberately
+  // darker than NEUTRAL_HEX (which stays exactly as-is for the vertex
+  // dots, phase 1's own diagrams, and everything else that already used
+  // it), only for this one, narrow purpose. Requested directly, for
+  // more contrast: since SELECTED_DOOR_COLOR_HEX now renders
+  // `fullBright` (no per-face dimming at all), a plain door needs to
+  // sit further away from it on the brightness scale for that contrast
+  // to actually read, not closer to white itself.
+  const DOOR_NEUTRAL_COLOR_HEX = "#7f8a8d";
 
   // ---- Board -----------------------------------------------------------------
   const BOARD_ASPECT = 7 / 9;
@@ -551,6 +560,7 @@
   const CORRECT_COLOR = hexToRgb(CORRECT_COLOR_HEX);
   const CATASTROPHIC_COLOR = hexToRgb(CATASTROPHIC_COLOR_HEX);
   const SELECTED_DOOR_COLOR = hexToRgb(SELECTED_DOOR_COLOR_HEX);
+  const DOOR_NEUTRAL_COLOR = hexToRgb(DOOR_NEUTRAL_COLOR_HEX);
 
   function rgbCss(c, alpha) {
     return `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${alpha})`;
@@ -1082,13 +1092,18 @@
   // means, right when that code first becomes visible, before the
   // player's own first move that round. A gentle few-second breathing
   // cycle (not a fast attention-grabbing flash), but a *big* swing --
-  // an initial +-40% amplitude was reported directly as still too
-  // subtle to reliably notice; +-75% is the current, much more obvious
-  // value. Tuned by watching it, not eyeballed from a single
-  // screenshot (a pulse is inherently a multi-frame thing to judge).
+  // an initial +-40% (later +-75%) amplitude, symmetric around the
+  // dot's own base radius, was reported directly two different ways in
+  // turn: first as too subtle, then (once widened) as shrinking "way
+  // too small" at its own trough. The wave itself changed shape, not
+  // just this number: see its own use below (a raised cosine, ranging
+  // [0, 1], not a plain sine ranging [-1, 1]) for why it now only ever
+  // grows *larger* than the base radius, never smaller. Tuned by
+  // watching it, not eyeballed from a single screenshot (a pulse is
+  // inherently a multi-frame thing to judge).
   const CHEATSHEET_PULSE_PERIOD_S = 3.5;
   const CHEATSHEET_PULSE_SPEED = (2 * Math.PI) / CHEATSHEET_PULSE_PERIOD_S;
-  const CHEATSHEET_PULSE_AMPLITUDE = 0.75; // +-75% of the vertex dot's own base radius
+  const CHEATSHEET_PULSE_AMPLITUDE = 0.75; // grows up to +75% of the vertex dot's own base radius; never shrinks below it
 
   function randomInt(n) {
     return Math.floor(Math.random() * n);
@@ -2452,7 +2467,14 @@
         let glowR = dotR;
         if (isCheatsheetPulseActive() && item.index === hintedGroup) {
           const phase = (lastFrameNowMs / 1000) * CHEATSHEET_PULSE_SPEED;
-          glowR = dotR * (1 + CHEATSHEET_PULSE_AMPLITUDE * Math.sin(phase));
+          // A raised cosine (`(1 - cos(phase)) / 2`), not a plain sine:
+          // ranges over [0, 1], not [-1, 1], so glowR only ever grows
+          // *larger* than dotR, bottoming out at exactly dotR (never
+          // smaller) rather than shrinking well below it. An earlier,
+          // symmetric sine-based version dipped as low as dotR*0.25 at
+          // its trough -- reported directly as "way too small."
+          const wave = (1 - Math.cos(phase)) / 2;
+          glowR = dotR * (1 + CHEATSHEET_PULSE_AMPLITUDE * wave);
         }
         drawGlow(p.x, p.y, glowR, NEUTRAL, alpha, 2.4);
         if (cheatsheetRevealed) {
@@ -2473,7 +2495,7 @@
         }
       } else {
         const i = item.index;
-        let color = NEUTRAL;
+        let color = DOOR_NEUTRAL_COLOR;
         let cubeAlpha = alpha;
         let wordLabel = null;
         let wordColor = null;
