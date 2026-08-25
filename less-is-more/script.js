@@ -1074,6 +1074,20 @@
   // tracking and no risk of the two drifting out of sync.
   const TETRA_AUTOSPIN_TILT = (10 * Math.PI) / 180; // ~10 degrees
 
+  // The cheat sheet's own vertex pulse (see drawGameBoard): the one
+  // vertex wearing the code that actually matches the current secret
+  // (hintedGroup) slowly grows and shrinks, real-time, for as long as
+  // gamePhase is 'cheatsheet' -- drawing the eye to exactly which
+  // corner "the code" means, right when that code first becomes
+  // visible, before the player's own first move (which flips gamePhase
+  // to 'hinted' and stops it). A gentle few-second breathing cycle, not
+  // a fast attention-grabbing flash -- tuned by watching it, not
+  // eyeballed from a single screenshot (a pulse is inherently a
+  // multi-frame thing to judge).
+  const CHEATSHEET_PULSE_PERIOD_S = 3.5;
+  const CHEATSHEET_PULSE_SPEED = (2 * Math.PI) / CHEATSHEET_PULSE_PERIOD_S;
+  const CHEATSHEET_PULSE_AMPLITUDE = 0.4; // +-40% of the vertex dot's own base radius
+
   function randomInt(n) {
     return Math.floor(Math.random() * n);
   }
@@ -1211,6 +1225,16 @@
   let gameUnit = 0;
   let dpr = window.devicePixelRatio || 1;
   let lastT = 0;
+  // The rAF timestamp `frame()` last ran with -- read by the cheat-
+  // sheet vertex pulse (see CHEATSHEET_PULSE_SPEED below), the *third*
+  // exception to "nothing animates from wall-clock time" in this file
+  // (drag, then the tetrahedron auto-spin, now this). Module-level
+  // rather than threaded through drawScene/drawGameScene/drawGameBoard's
+  // own parameters, the same way tetraRotX/Y are read directly rather
+  // than passed in -- this file's own established pattern for "live
+  // state every draw call needs, but that isn't itself part of the t
+  // pipeline."
+  let lastFrameNowMs = 0;
   let legendChunkKey = null;
   // Tracks whether the *previous* render() call found the game
   // interactive, so render() can detect the one moment that matters:
@@ -2388,7 +2412,19 @@
       if (item.isVertex) {
         const p = item.pos;
         const dotR = Math.max(gameUnit * 0.05, 4);
-        drawGlow(p.x, p.y, dotR, NEUTRAL, alpha, 2.4);
+        // The cheat sheet's own intro pulse (see CHEATSHEET_PULSE_SPEED
+        // above): only the one vertex actually matching the current
+        // secret (hintedGroup), only during 'cheatsheet' -- everything
+        // else about this vertex (its label's own gap, the wireframe
+        // edges meeting it) still reads off the *unpulsed* dotR, so
+        // only the glow itself visibly breathes, not the label's own
+        // position.
+        let glowR = dotR;
+        if (gamePhase === "cheatsheet" && item.index === hintedGroup) {
+          const phase = (lastFrameNowMs / 1000) * CHEATSHEET_PULSE_SPEED;
+          glowR = dotR * (1 + CHEATSHEET_PULSE_AMPLITUDE * Math.sin(phase));
+        }
+        drawGlow(p.x, p.y, glowR, NEUTRAL, alpha, 2.4);
         if (cheatsheetRevealed) {
           // anchor: "bottom" -- not the default top-anchor -- so the gap
           // above the dot is measured to the label's own *bottom* edge,
@@ -2783,14 +2819,18 @@
       lastInnerHeight = window.innerHeight;
       resize();
     }
+    lastFrameNowMs = now;
     const t = computeT();
     // updateTetraAutoSpin runs every frame regardless of whether t
     // changed -- real elapsed time, not t, is what it advances against
     // -- so its own return value (did it just move tetraRotY) has to
     // be OR'd into the render-or-not decision alongside the usual
-    // t-changed check.
+    // t-changed check. The cheat-sheet vertex pulse is the same idea,
+    // simpler: no settle/snap semantics of its own, just "keep
+    // repainting every frame for as long as gamePhase is 'cheatsheet'."
     const spinChanged = updateTetraAutoSpin(now, t);
-    if (t !== lastT || spinChanged) render(t);
+    const pulseActive = gamePhase === "cheatsheet";
+    if (t !== lastT || spinChanged || pulseActive) render(t);
     updateLegend(t);
     requestAnimationFrame(frame);
   }

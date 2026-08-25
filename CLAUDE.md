@@ -113,14 +113,18 @@ framework. The discipline, in order, for *any* nontrivial change:
    - **Idle-static**: screenshot, wait 1.5–2s doing nothing, screenshot
      again, assert byte-identical `canvas.toDataURL()`. Confirms nothing
      animates from wall-clock time (the hard invariant this piece
-     inherited from phase 1 and extended to phase 2 — see below). **Two
-     legitimate, narrowly-scoped exceptions now**, not one: an active
-     drag, and the tetrahedron auto-spin while it's still running (only
-     possible while `tGame` is in `[doorsEnd, playArrive)`, or briefly
-     past `playArrive` until it finishes its current revolution and
-     snaps to rest — see "Tetrahedron auto-spin" below). Idle-static
-     must still hold everywhere else: before `doorsEnd`, and once the
-     spin has settled at/past `playArrive`.
+     inherited from phase 1 and extended to phase 2 — see below). **Three
+     legitimate, narrowly-scoped exceptions now**: an active drag, the
+     tetrahedron auto-spin while it's still running (only possible
+     while `tGame` is in `[doorsEnd, playArrive)`, or briefly past
+     `playArrive` until it finishes its current revolution and snaps to
+     rest — see "Tetrahedron auto-spin" below), and the cheat-sheet
+     vertex pulse while `gamePhase === 'cheatsheet'` (see "Cheat-sheet
+     vertex pulse" below — it stops the moment the player's first move
+     flips `gamePhase` to `'hinted'`). Idle-static must still hold
+     everywhere else: before `doorsEnd`, once the spin has settled
+     at/past `playArrive`, and once `gamePhase` has moved past
+     `'cheatsheet'`.
    - **Forward/backward scroll scrub**: for every *scroll-driven*
      chapter (not the interactive game/tetrahedron-drag past `playArrive`
      — those are legitimately state-driven, not reversible-by-
@@ -194,18 +198,20 @@ roughly this order (grep for the section-header comments, which use
 
 - `t` = a single scalar in `[0,1]`, derived from scroll position
   (`computeT()`), driving *everything*. Nothing animates from
-  wall-clock time **except two things**: the tetrahedron's
+  wall-clock time **except three things**: the tetrahedron's
   drag-rotation, which is real user-pointer-input-driven state, not
   time-driven — it changes only on an actual drag and holds exactly
   still otherwise, satisfying the same "static unless something
-  changes" rule by a different route — and, added in a later session,
-  a slow **auto-spin** in `tetraRotY` alone, running only across
-  `[doorsEnd, playArrive)` (plus a short tail past `playArrive` to
-  finish its current revolution) and cancelled permanently, instantly,
-  by the first real drag. See "Tetrahedron auto-spin" below —
-  genuinely wall-clock-time-driven, not just user-input-driven like the
-  drag exception, so it narrows the idle-static invariant differently;
-  don't conflate the two when re-verifying.
+  changes" rule by a different route — a slow **auto-spin** in
+  `tetraRotY` alone, running only across `[doorsEnd, playArrive)` (plus
+  a short tail past `playArrive` to finish its current revolution) and
+  cancelled permanently, instantly, by the first real drag (see
+  "Tetrahedron auto-spin" below) — and a **cheat-sheet vertex pulse**,
+  running only while `gamePhase === 'cheatsheet'` (see "Cheat-sheet
+  vertex pulse" below). The latter two are genuinely wall-clock-time-
+  driven, not just user-input-driven like the drag exception, so each
+  narrows the idle-static invariant differently, in its own separate
+  window; don't conflate any of the three when re-verifying.
 - Phase 1 (the original, pre-existing piece: Venn-diagram kernel/query
   argument, weather-sentence examples, cost curves, "This is what
   Less/More means") is **completely untouched** by any of phase 2's
@@ -665,6 +671,54 @@ relative to a rotating 3D object should be checked across a full sweep
 of the rotation, in Node, before trusting a handful of screenshots at
 arbitrary instants not to have missed a bad angle. A screenshot confirms
 one instant; a sweep confirms all of them.
+
+### Cheat-sheet vertex pulse — the *third* wall-clock exception
+
+The one vertex actually matching the current secret (`hintedGroup`)
+slowly grows and shrinks, real-time, for as long as `gamePhase ===
+'cheatsheet'` — drawing the eye to exactly which corner "the code"
+means, right when the code first becomes visible, before the player's
+own first move (which flips `gamePhase` to `'hinted'` and stops it for
+good, that round). Requested directly, in those terms — "a sphere that
+slowly increases/decreases in radius" — where "sphere" means the
+vertex's own existing glowing dot (`drawGlow`, a radial-gradient glow
+that already reads as a small glowing orb), not a new 3D primitive.
+
+- `CHEATSHEET_PULSE_PERIOD_S` (3.5s), `CHEATSHEET_PULSE_SPEED`
+  (`2*PI / period`), `CHEATSHEET_PULSE_AMPLITUDE` (`0.4`, i.e. the
+  glow's radius swings ±40% of its own base `dotR`). A gentle multi-
+  second breathing cycle, deliberately not a fast flash — a pulse is
+  inherently a multi-frame thing to judge, so this was tuned by
+  watching it over several cycles, not from a single screenshot.
+- Reads real time via `lastFrameNowMs` (set at the top of `frame(now)`,
+  every frame) rather than having a parameter threaded through
+  `drawScene`/`drawGameScene`/`drawGameBoard` — the same "module-level
+  state read directly" pattern `tetraRotX/Y` already use, now extended
+  to a plain timestamp.
+- **Only the glow's own radius pulses** — `drawGameBoard` computes a
+  separate `glowR` for the `drawGlow` call, while the vertex code
+  label's own gap (`dotR * 2.8`) still reads off the *unpulsed* `dotR`.
+  Coupling the label's position to the pulsing radius too was tried
+  first and reverted immediately (still in the same editing pass, never
+  screenshotted) — the label visibly bobbing up and down in sync with
+  the glow read as distracting jitter on the text itself, not a
+  deliberate effect; the glow alone breathing, with the label held
+  perfectly still, was the version that actually looked intentional.
+- `frame()`'s own render-or-not check gained a third OR clause —
+  `gamePhase === 'cheatsheet'` — forcing a repaint every frame for as
+  long as that's true, parallel to `updateTetraAutoSpin`'s own return
+  value. No settle/snap semantics of its own to get right here (unlike
+  the auto-spin): the pulse simply stops changing, wherever it happens
+  to be in its own cycle, the instant `gamePhase` moves on — there's no
+  "must end at a specific canonical value" fact to land on exactly.
+- **Verified by sampling brightness at a fixed screen offset from each
+  of the 4 vertices across ~4 real seconds**, not just by eyeballing a
+  screenshot (a pulse, like the auto-spin's own rotation rate, is a
+  claim about *change over real time* — a single screenshot can't
+  confirm or refute it on its own): the hinted vertex's own sample swings
+  by a large margin (hundreds, in raw summed-RGB terms) while the other
+  three stay *exactly* constant, confirming both that the right vertex
+  pulses and that no other vertex does.
 
 ## Things tried and explicitly reverted (don't redo these without a new reason)
 
