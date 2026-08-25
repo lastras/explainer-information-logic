@@ -2331,7 +2331,22 @@
         const p = project3D(vertsRot[item.index], cx, cy, scale);
         const dotR = Math.max(gameUnit * 0.05, 4);
         drawGlow(p.x, p.y, dotR, NEUTRAL, alpha, 2.4);
-        drawLabel(item.index.toString(2).padStart(2, "0"), p.x, p.y - dotR * 2.8, alpha, "center", { sizeMult: 0.78 });
+        // anchor: "bottom" -- not the default top-anchor -- so the gap
+        // above the dot is measured to the label's own *bottom* edge,
+        // not its top. dotR has its own, much smaller floor (4px) than
+        // baseFontSize()'s (16px), so on a narrow/mobile viewport dotR
+        // floors out while the label's own text stays comparatively
+        // tall; top-anchoring then let the label's actual bottom edge
+        // (top + its own height) sink down into the dot's own glow
+        // halo -- looked fine on a laptop (where gameUnit is large
+        // enough that neither floor is actually being hit) but visibly
+        // overlapped the sphere on a phone. Anchoring the bottom edge
+        // instead keeps a fixed clearance above the dot regardless of
+        // how tall the label's own text turns out to be.
+        drawLabel(item.index.toString(2).padStart(2, "0"), p.x, p.y - dotR * 2.8, alpha, "center", {
+          sizeMult: 0.78,
+          anchor: "bottom",
+        });
       } else {
         drawTetraCube(item.index, cx, cy, scale, alpha, angleX, angleY, cubeZHalf);
       }
