@@ -306,7 +306,7 @@
       from: CH.qCurveEnd,
       heading: "Sending Alice's own kernel outright",
       body:
-        "Alternatively, Alice communicates her own kernel directly. Its cost is shown here as the flat cyan line. The two strategies aren't equally expensive.",
+        "Alternatively, Alice communicates her own kernel directly. Its cost is shown here as the flat cyan line.",
     },
     {
       from: CH.sLineEnd,
@@ -330,7 +330,7 @@
       from: CH.candidateStatementEnd,
       heading: "A short, shared list",
       body:
-        "If Alice and Bob agree on a short list of candidate kernels in advance, sending just this kernel's place on the list works for whichever situation arises \u2014 reused every time, not worked out anew.",
+        "If Alice and Bob agree on a short list of candidate kernels in advance, sending just this kernel's place on the list works for whichever situation arises.",
     },
     {
       from: CH.codebookEnd,
@@ -342,7 +342,7 @@
       from: CH.lessEnd,
       heading: "This is what \u201CMore\u201D means",
       body:
-        "The kernel Bob actually ends up with \u2014 the candidate's \u2014 is smaller than the query's own kernel. A smaller kernel proves more, exactly as the very first situation shown established: \u201CIt's raining and cold\u201D rules out more than either \u201Ccold\u201D or \u201Craining\u201D alone.",
+        "The kernel Bob actually ends up with is smaller than the query's own kernel. A smaller kernel proves more, exactly as the very first situation shown established: \u201CIt's raining and cold\u201D rules out more than either \u201Ccold\u201D or \u201Craining\u201D alone.",
     },
   ];
 
@@ -390,7 +390,7 @@
       from: CHG.enoughEnd,
       heading: "Alice's signal",
       body:
-        "Just 2 bits, in fact. Alice is continuously broadcasting a 2-bit signal, shown here as two small marks \u2014 though it means nothing on its own until you also have a shared list to decode it.",
+        "Just 2 bits, in fact. Throughout the game, Alice will communicate with you through this signal, shown here as its own binary code \u2014 though it means nothing on its own until you also have a shared list to decode it.",
     },
   ];
 
@@ -433,7 +433,7 @@
   const SUMMARY_TEXT = {
     heading: "Less is more",
     body:
-      "A short, pre-agreed list \u2014 built once, to work across every possible situation at once \u2014 can prove more with less than any single, tailored message ever could. That's the whole idea, whether it's a weather report or a door with a prize behind it.",
+      "That short, pre-agreed list is the whole trick: it lets Alice send less than either obvious strategy, and it leaves Bob knowing more than she actually had to tell him. Agree on the list once, and it covers every situation that comes up \u2014 a weather report, or a door with a prize behind it.",
   };
 
   // ---- Palette -------------------------------------------------------------
@@ -2062,24 +2062,6 @@
   // =======================================================================
   // ---- Guess the Door: rendering -----------------------------------------
   // =======================================================================
-  // A plain stroked ring, with no fill and no glow halo -- used only for
-  // the "selected, not yet opened" outline below. Deliberately not
-  // drawOutlineDisc() (used throughout phase 1): that helper's line width
-  // is a fraction of phase 1's own `unit`, not `gameUnit`, and the two
-  // scale independently (see GAME_UNIT_DIVISOR's own note above) -- this
-  // keeps the ring's thickness tied to the same scale as everything else
-  // it's drawn alongside.
-  function drawRing(cx, cy, radius, color, alpha, lineWidth) {
-    if (alpha <= 0 || radius <= 0) return;
-    ctx.save();
-    ctx.strokeStyle = rgbCss(color, alpha);
-    ctx.lineWidth = lineWidth;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }
-
   // A door's own marker: a filled *square* (soft glow halo still round --
   // a glow is ambient light, not a shape claim), never a circle/disc. A
   // disc is this piece's own fixed symbol for "a kernel," established
@@ -2163,19 +2145,17 @@
     });
   }
 
-  // Alice's 2-bit signal: two small marks, filled = 1, hollow = 0 -- the
-  // same filled/outline distinction phase 1 already uses for disc states
-  // (drawGlow vs. drawOutlineDisc's empty fill) rather than a new visual
-  // vocabulary. Reused identically for the main board's own signal and
-  // for each cheat-sheet row's copy (see drawCheatSheet below).
-  function drawSignalIndicator(cx, cy, groupIndex, dotRadius, gap, alpha, color) {
+  // Alice's 2-bit signal, shown directly as its own binary code -- the
+  // same encoding the tetrahedron's own vertex labels use later
+  // (drawTetrahedronReveal), rather than a separate filled/hollow-dot
+  // vocabulary invented just for this. `cy` is the text's own vertical
+  // center (matching where the old dot-pair used to sit). Reused
+  // identically for the main board's own signal and for each
+  // cheat-sheet row's copy (see drawCheatSheet below).
+  function drawSignalIndicator(cx, cy, groupIndex, sizeMult, alpha, color) {
     if (alpha <= 0 || groupIndex < 0) return;
-    const bits = groupIndex.toString(2).padStart(2, "0");
-    for (let k = 0; k < 2; k++) {
-      const x = cx + (k - 0.5) * gap;
-      if (bits[k] === "1") drawGlow(x, cy, dotRadius, color, alpha, 2.4);
-      else drawRing(x, cy, dotRadius, color, alpha * 0.85, Math.max(1, dotRadius * 0.3));
-    }
+    const size = baseFontSize() * sizeMult;
+    drawLabel(groupIndex.toString(2).padStart(2, "0"), cx, cy - size / 2, alpha, "center", { sizeMult, color });
   }
 
   function aliceSignalPos() {
@@ -2206,14 +2186,18 @@
   const CHEATSHEET_COL_FX = [0.28, 0.72];
   const CHEATSHEET_ROW_FY = [0.53, 0.66];
   const CHEATSHEET_MINI_UNIT_MULT = 0.28;
-  // How far above its own mini-board's top point (local y = -0.25, the
-  // two side doors) the mini signal indicator sits. Was 0.32 (measured
-  // from the board's own *center*, not its edge) -- large enough that
-  // the second row's own signal read as ambiguously close to the *first*
-  // row's board instead of its own, reported directly. Measured from the
-  // board's top edge instead, and shrunk, so the indicator reads as
-  // sitting right above its own diagram specifically.
-  const CHEATSHEET_SIGNAL_GAP_MULT = 0.22;
+  // How far above its own mini-board's topmost door (local y =
+  // -GAME_DOOR_RADIUS * sin(60deg) \u2248 -0.433, the two upper doors of the
+  // plain hexagon) the mini signal indicator's own vertical center sits.
+  // The old 0.25 this used to be measured against was a stale value
+  // left over from the pre-hexagon two-radii K4 layout (see
+  // GAME_DOOR_RADIUS's own note) -- once the board was simplified to a
+  // plain hexagon, that stale value undershot the hexagon's *actual*
+  // top, so the signal visibly overlapped it (reported directly).
+  // Fixed by measuring against the hexagon's real topmost door y,
+  // with its own clearance layered on top.
+  const CHEATSHEET_HEX_TOP = GAME_DOOR_RADIUS * Math.sin(Math.PI / 3);
+  const CHEATSHEET_SIGNAL_GAP_MULT = 0.2;
 
   function cheatsheetSlot(g) {
     const col = g % 2;
@@ -2234,8 +2218,8 @@
         const inGroup = doors.includes(i);
         drawSquareMarker(p.x, p.y, dotRadius, inGroup ? CANDIDATE_COLOR : NEUTRAL, alpha * (inGroup ? 1 : 0.3), 2.2);
       }
-      const signalY = slot.y - miniUnit * (0.25 + CHEATSHEET_SIGNAL_GAP_MULT);
-      drawSignalIndicator(slot.x, signalY, g, dotRadius * 0.85, dotRadius * 3.2, alpha, NEUTRAL);
+      const signalY = slot.y - miniUnit * (CHEATSHEET_HEX_TOP + CHEATSHEET_SIGNAL_GAP_MULT);
+      drawSignalIndicator(slot.x, signalY, g, 0.55, alpha, NEUTRAL);
     }
   }
 
@@ -2296,8 +2280,9 @@
   }
 
   // The tetrahedron itself: 4 vertices (Alice's own 4 codes, labeled
-  // directly in binary -- the same encoding drawSignalIndicator already
-  // decodes elsewhere, not a new one) and 6 edges, each edge a door,
+  // directly in binary -- the same plain binary-text rendering
+  // drawSignalIndicator itself uses elsewhere, not a new one) and 6
+  // edges, each edge a door,
   // drawn as a small cube sitting exactly where its two codes meet.
   // angleX/angleY/cubeZHalf are supplied by drawGameScene, which decides
   // whether they come from the scroll-driven sweep or the user's own
@@ -2355,7 +2340,7 @@
     drawGameBoard(boardAppear);
     if (signalAppear > 0) {
       const sp = aliceSignalPos();
-      drawSignalIndicator(sp.x, sp.y, hintedGroup, Math.max(gameUnit * 0.055, 3), gameUnit * 0.32, signalAppear, NEUTRAL);
+      drawSignalIndicator(sp.x, sp.y, hintedGroup, 0.95, signalAppear, NEUTRAL);
     }
     if (playAppear > 0) {
       drawTally(playAppear);
@@ -2520,7 +2505,13 @@
   // for mouse, touch, and pen alike. setPointerCapture keeps delivering
   // move/up events to the canvas even if the pointer strays outside it
   // mid-drag, the standard way to implement a drag gesture without
-  // needing window-level listeners. Gated on tGame >= tetraSweepEnd, not
+  // needing window-level listeners. On touch devices this alone isn't
+  // enough -- see #scene's own `touch-action: pan-y` in style.css, which
+  // is what actually keeps a one-finger drag from fighting the page's
+  // own native scroll (a mostly-vertical touch drag scrolls, untouched
+  // by any of this; anything with real horizontal motion reaches these
+  // handlers instead, never triggering a native scroll at all). Gated on
+  // tGame >= tetraSweepEnd, not
   // just isTetraActive(): dragging during the scroll-driven sweep itself
   // would fight over control of tetraRotX/Y with values that aren't even
   // being read yet (drawGameScene interpolates its own angles during the

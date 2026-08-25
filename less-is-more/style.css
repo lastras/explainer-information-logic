@@ -47,10 +47,23 @@ html, body {
   justify-content: center;
 }
 
+/* pan-y (not the default `auto`): a touch drag whose initial direction is
+   mostly vertical still scrolls the page natively, untouched by JS, but a
+   drag with any real horizontal component is never hijacked for native
+   scrolling at all and reaches script.js's own pointermove handler as a
+   clean, uninterrupted gesture -- the standard fix for the tetrahedron
+   reveal's own drag-to-rotate (see its "drag to rotate" section), which
+   otherwise fought the browser's own scroll gesture on every single touch
+   drag (both firing off the same one-finger motion at once, each visibly
+   fighting the other -- reported directly on mobile). Harmless everywhere
+   else in the piece: taps (door selection) aren't a pan gesture and are
+   unaffected, and no other chapter listens for a horizontal drag at all, so
+   reserving it here changes nothing for them. */
 #scene {
   display: block;
   width: 100%;
   height: 100%;
+  touch-action: pan-y;
 }
 
 /* The legend card and the game's own button row, stacked as one bottom-
