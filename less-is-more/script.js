@@ -2590,6 +2590,22 @@
     canvas.style.touchAction = isTetraActive(t) && tGameOf(t) >= CHG.tetraSweepEnd ? "none" : "auto";
   }
 
+  // Only one pointer is ever tracked at a time -- see onTetraPointerDown's
+  // own note on why a second, simultaneous one (an incidental
+  // palm/other-hand touch, most commonly) must be ignored outright rather
+  // than taking over.
+  let tetraActivePointerId = null;
+
+  // A single move event's delta is clamped to this many px before being
+  // applied to either rotation or the manual scroll replay -- a last-
+  // resort backstop, not the primary fix (see onTetraPointerDown), for
+  // any *other* implausible single-event jump (e.g. resuming a drag
+  // after the tab was backgrounded and comes back mid-gesture). Applied
+  // to the *effect* only; tetraLastPointerX/Y itself still tracks the
+  // real, unclamped position, so one clamped event doesn't throw off
+  // the delta computed for the next one.
+  const TETRA_MAX_STEP_PX = 150;
+
   // Gated on tGame >= tetraSweepEnd, not just isTetraActive(): dragging
   // during the scroll-driven sweep itself would fight over control of
   // tetraRotX/Y with values that aren't even being read yet
@@ -2598,7 +2614,20 @@
   // ordering.
   function onTetraPointerDown(e) {
     if (!isTetraActive(lastT) || tGameOf(lastT) < CHG.tetraSweepEnd) return;
+    // A second, simultaneous touch (e.g. the user's other hand briefly
+    // brushing the screen) must never interrupt an already-active drag.
+    // Each pointerdown after the first used to silently overwrite the
+    // shared tetraLastPointerX/Y and tetraGestureMode out from under the
+    // first finger's own gesture, so the *next* move event for either
+    // finger got diffed against the *other* finger's last position -- an
+    // arbitrarily large, spurious jump. Reported directly as an
+    // occasional flicker followed by the scroll position landing all the
+    // way back at the very start of the piece (a large enough negative
+    // delta simply clamps window.scrollBy to 0). Ignoring every pointer
+    // but the first, until it lifts, removes the interleaving entirely.
+    if (tetraDragging) return;
     tetraDragging = true;
+    tetraActivePointerId = e.pointerId;
     // Mouse/pen: always rotate, wherever the click starts -- there's no
     // competing native-scroll gesture to avoid on desktop in the first
     // place, so there's nothing for a location check to protect against.
@@ -2609,9 +2638,9 @@
   }
 
   function onTetraPointerMove(e) {
-    if (!tetraDragging) return;
-    const dx = e.clientX - tetraLastPointerX;
-    const dy = e.clientY - tetraLastPointerY;
+    if (!tetraDragging || e.pointerId !== tetraActivePointerId) return;
+    const dx = clamp(e.clientX - tetraLastPointerX, -TETRA_MAX_STEP_PX, TETRA_MAX_STEP_PX);
+    const dy = clamp(e.clientY - tetraLastPointerY, -TETRA_MAX_STEP_PX, TETRA_MAX_STEP_PX);
     tetraLastPointerX = e.clientX;
     tetraLastPointerY = e.clientY;
 
@@ -2629,8 +2658,10 @@
     render(lastT);
   }
 
-  function onTetraPointerUp() {
+  function onTetraPointerUp(e) {
+    if (e.pointerId !== tetraActivePointerId) return;
     tetraDragging = false;
+    tetraActivePointerId = null;
     syncTetraTouchAction(lastT); // safe now -- see syncTetraTouchAction's own note on why not during
   }
 
