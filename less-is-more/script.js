@@ -2502,38 +2502,65 @@
   gameNewRoundBtn.addEventListener("click", startNewRound);
 
   // ---- The geometric reveal's own interaction: drag to rotate ------------
-  // Pointer Events, not separate mouse/touch handlers -- one code path for
-  // mouse, touch, and pen alike, except for one deliberate touch-only
-  // wrinkle (the axis lock below): a mouse drag never competes with a
-  // native scroll gesture, so it always rotates on both axes, full stop;
-  // a touch drag does compete with the page's own scroll, so its first
-  // few pixels of movement decide, once, which of the two the *whole*
-  // gesture means, rather than blending or handing off between them
-  // mid-drag. setPointerCapture keeps delivering move/up events to the
-  // canvas even if the pointer strays outside it mid-drag, the standard
-  // way to implement a drag gesture without needing window-level
-  // listeners.
+  // Pointer Events, not separate mouse/touch handlers -- one code path
+  // for mouse, touch, and pen alike, except for one deliberate touch-only
+  // wrinkle (the location check below): a mouse drag never competes with
+  // a native scroll gesture, so it always rotates regardless of where on
+  // the canvas it starts; a touch drag does compete with the page's own
+  // scroll, so *where* it starts decides, once, up front, which of the
+  // two the whole gesture means. setPointerCapture keeps delivering
+  // move/up events to the canvas even if the pointer strays outside it
+  // mid-drag, the standard way to implement a drag gesture without
+  // needing window-level listeners.
   //
-  // This used to be `touch-action: pan-y` in style.css -- a pure-CSS fix
-  // that looked right in an exact, axis-aligned synthetic test, but real
-  // fingers are never perfectly horizontal, and browsers commit to "this
-  // is a scroll" from just the first couple of pixels of *any* vertical
-  // component -- so a real "mostly sideways" drag kept getting swallowed
-  // into a native scroll before ever reaching this code (reported
-  // directly: "a fully horizontal motion won't actually rotate the
-  // figure at all"). Fixed by taking the decision away from the browser's
-  // own coarse heuristic entirely: `touch-action: none` while (and only
-  // while) this zone is active (syncTetraTouchAction below, kept in sync
-  // from render() -- see its own note) hands *every* touch gesture here
-  // to this code with zero native interference, and the axis lock then
-  // manually replays a plain scroll (window.scrollBy) for whichever
-  // gestures turn out to be scroll-intent -- so the *result* still feels
-  // like "mostly-vertical drags scroll, mostly-horizontal drags rotate,"
-  // just decided here instead of left to the browser.
-  const TETRA_AXIS_LOCK_PX = 10; // dead zone before a touch gesture's mode is decided
-  let tetraGestureMode = null; // null (undecided) | "rotate" | "scroll" -- touch only
-  let tetraStartPointerX = 0;
-  let tetraStartPointerY = 0;
+  // Two earlier approaches here, both reverted after real failures on an
+  // actual device (a synthetic, exactly-axis-aligned Puppeteer test
+  // passed for both, which is *why* each one's own failure only showed up
+  // once a person actually tried it):
+  // 1. `touch-action: pan-y` in style.css alone -- real fingers are never
+  //    perfectly horizontal, and browsers commit to "this is a scroll"
+  //    from just the first couple of pixels of *any* vertical component,
+  //    so a real "mostly sideways" drag kept getting swallowed into a
+  //    native scroll before ever reaching this code ("a fully horizontal
+  //    motion won't actually rotate the figure at all").
+  // 2. A direction-based axis lock in JS (decide "rotate" vs "scroll"
+  //    from the first ~10px of movement's own dominant axis) -- reported
+  //    as still not working. Direction is an inherently noisy signal to
+  //    infer intent from; *where* the gesture starts is not.
+  // Current approach: intent is decided entirely by whether the touch
+  // *starts* on the tetrahedron itself (rotate) or elsewhere on screen,
+  // e.g. the empty space above or below it (scroll) -- matching how a
+  // person actually thinks about it ("I'm touching the shape" vs "I'm
+  // touching the page"), not a property of the motion at all.
+  // `touch-action: none` while (and only while) this zone is active
+  // (syncTetraTouchAction below, kept in sync from render()) hands every
+  // touch gesture here to this code with zero native interference either
+  // way; "elsewhere" gestures then manually replay a plain scroll
+  // (window.scrollBy) themselves, since native scrolling is switched off
+  // for this whole zone, not just over the shape.
+  let tetraGestureMode = "rotate"; // "rotate" | "scroll" -- decided once, at pointerdown
+
+  // How far from the tetrahedron's own center (gameToBoard(0,0)) a touch
+  // may start and still count as "on the shape." The vertices themselves
+  // sit at local-space radius sqrt(3) (TETRA_VERTS_3D's own (+-1,+-1,+-1)
+  // construction), i.e. a projected radius of roughly
+  // gameUnit * TETRA_SCALE_MULT * sqrt(3) -- this is deliberately larger
+  // than that (measured against actual screenshots, not just computed),
+  // generous enough to comfortably include each vertex's own code label
+  // drawn just above it and to forgive imprecision in exactly where a
+  // finger lands, while still leaving clear open space above and below
+  // the shape (where a scroll attempt should never accidentally rotate
+  // it instead).
+  const TETRA_HIT_RADIUS_MULT = 1.3;
+
+  function isOnTetrahedron(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const c = gameToBoard(0, 0);
+    const dx = clientX - rect.left - c.x;
+    const dy = clientY - rect.top - c.y;
+    const r = gameUnit * TETRA_HIT_RADIUS_MULT;
+    return dx * dx + dy * dy <= r * r;
+  }
 
   // Kept in sync with every t change (called from render(), which fires
   // on scroll-driven crossings and on the very first render alike) rather
@@ -2556,9 +2583,10 @@
   function onTetraPointerDown(e) {
     if (!isTetraActive(lastT) || tGameOf(lastT) < CHG.tetraSweepEnd) return;
     tetraDragging = true;
-    tetraGestureMode = e.pointerType === "touch" ? null : "rotate"; // mouse/pen: nothing to lock
-    tetraStartPointerX = e.clientX;
-    tetraStartPointerY = e.clientY;
+    // Mouse/pen: always rotate, wherever the click starts -- there's no
+    // competing native-scroll gesture to avoid on desktop in the first
+    // place, so there's nothing for a location check to protect against.
+    tetraGestureMode = e.pointerType !== "touch" || isOnTetrahedron(e.clientX, e.clientY) ? "rotate" : "scroll";
     tetraLastPointerX = e.clientX;
     tetraLastPointerY = e.clientY;
     canvas.setPointerCapture(e.pointerId);
@@ -2571,16 +2599,9 @@
     tetraLastPointerX = e.clientX;
     tetraLastPointerY = e.clientY;
 
-    if (tetraGestureMode === null) {
-      const totalDx = e.clientX - tetraStartPointerX;
-      const totalDy = e.clientY - tetraStartPointerY;
-      if (totalDx * totalDx + totalDy * totalDy < TETRA_AXIS_LOCK_PX * TETRA_AXIS_LOCK_PX) return; // still inside the dead zone
-      tetraGestureMode = Math.abs(totalDx) >= Math.abs(totalDy) ? "rotate" : "scroll";
-    }
-
     if (tetraGestureMode === "scroll") {
       // touch-action is "none" here, so nothing else will scroll this --
-      // replaying it manually is what makes a locked-scroll gesture feel
+      // replaying it manually is what makes an off-shape gesture feel
       // like anything happened at all.
       window.scrollBy(0, -dy);
       return;
@@ -2594,7 +2615,6 @@
 
   function onTetraPointerUp() {
     tetraDragging = false;
-    tetraGestureMode = null;
   }
 
   canvas.addEventListener("pointerdown", onTetraPointerDown);
