@@ -2570,7 +2570,23 @@
   // onTetraPointerDown's own gate below -- if you change one, change
   // both, or a drag could become enabled while native scrolling is still
   // also active for it (or vice versa).
+  //
+  // Never touches touch-action while tetraDragging is true, even though
+  // render() (and so this) keeps firing during an off-shape "scroll"
+  // gesture -- that gesture's own manual window.scrollBy calls change t
+  // just like a real scroll would, and a *scroll-up* (backward) drag
+  // will often cross back below tetraSweepEnd mid-gesture, which used to
+  // flip touch-action to "auto" while that exact touch was still live.
+  // Real mobile browsers handle a touch-action change on an in-progress
+  // touch inconsistently -- reported directly as scrolling up (but not
+  // down) coming out "screwed up," which is exactly the direction that
+  // crosses this boundary mid-drag going the other way. Recomputed once
+  // the gesture actually ends instead (see onTetraPointerUp) -- the
+  // gesture's own already-decided mode doesn't need touch-action to
+  // change mid-flight regardless, since everything past pointerdown is
+  // already fully manual either way (see onTetraPointerMove).
   function syncTetraTouchAction(t) {
+    if (tetraDragging) return;
     canvas.style.touchAction = isTetraActive(t) && tGameOf(t) >= CHG.tetraSweepEnd ? "none" : "auto";
   }
 
@@ -2615,6 +2631,7 @@
 
   function onTetraPointerUp() {
     tetraDragging = false;
+    syncTetraTouchAction(lastT); // safe now -- see syncTetraTouchAction's own note on why not during
   }
 
   canvas.addEventListener("pointerdown", onTetraPointerDown);
