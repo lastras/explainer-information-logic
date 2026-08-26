@@ -28,7 +28,20 @@ been extended past its original scope). If you're arriving here having just
 read the `less-is-more` CLAUDE.md, expect this one to be considerably
 simpler and don't go looking for analogous machinery that isn't here.
 
-## Repo / remote situation — an important discrepancy vs. `less-is-more/`
+## Repo / remote situation
+
+**Correction, a later session**: the claim below that this directory
+"has never actually been committed" in the IBM monorepo was true when
+first written but is **stale** -- `git log -- content/explainer-no-need-to-know/`
+shows it was tracked shortly after (`a18e7cf Track explainer-no-need-to-know
+in this monorepo...`), and has since picked up the same later commits
+`less-is-more/` did (mobile text-size/elongation fixes, the closing-card
+trim) -- i.e. it's *no longer* uniquely dormant the way the original
+paragraph below describes. Left the original paragraph intact underneath
+for its own still-useful context (the mirror workflow itself, the "diff
+the two copies first" habit); just don't trust its specific "never
+committed"/"zero commits since" claims without re-checking `git log`
+yourself first, the way this correction just did.
 
 Unlike `less-is-more/` (which has an actively-maintained mirror workflow
 between this IBM monorepo and `github.com/lastras/explainer-information-logic`),
@@ -50,12 +63,11 @@ i.e. this piece has been completely dormant since that initial add, while
 `less-is-more/` went through an entire second phase of active development.
 
 **Before making any change**: diff the two copies first
-(`diff -rq content/explainer-no-need-to-know/ /tmp/.../no-need-to-know/`)
-to confirm they're still identical (they were, as of this file's writing —
-`index.html`, `style.css`, `script.js`, `README.md`, this new `CLAUDE.md`).
-If you edit the IBM-repo copy, remember to also `git add` it there — it
-won't get picked up by an existing pattern the way `less-is-more/`'s already
-does, since it's never been added at all.
+(`diff -rq content/explainer-no-need-to-know/ /tmp/.../no-need-to-know/`,
+or wherever the IBM monorepo is actually checked out — confirmed, this
+later session, to be `/Users/lastrasl/github/information-in-logic/`)
+to confirm they're still identical. If they've diverged, reconcile before
+piling a new change on top of an unknown base.
 
 Deployed at:
 **https://lastras.github.io/explainer-information-logic/no-need-to-know/**
@@ -381,6 +393,8 @@ standard harmless favicon 404.
    `less-is-more/CLAUDE.md`) — keep the two pieces' documentation as
    separate as the pieces themselves are.
 5. Push to both repos following the same two-commit pattern documented in
-   `less-is-more/CLAUDE.md`'s "Repo / remote situation" section, but note
-   you'll need `git add` (not just `git commit`) on the IBM side the first
-   time, since this directory has never been tracked there.
+   `less-is-more/CLAUDE.md`'s "Repo / remote situation" section. (This
+   directory *is* now tracked on the IBM side too, contrary to what an
+   earlier version of this file's own "Repo / remote situation" section
+   above claimed — see that section's own correction note. Plain `git
+   add` + `git commit` there works the same as it does for `less-is-more/`.)
