@@ -301,6 +301,72 @@ recur in a *third* piece someday:
   (real navigation, not simulated) to confirm no chapter's own legend
   position regressed.
 
+## Intro/finale link geometry: pointing *at* the kernel, not *into* it (latest session)
+
+Three related fixes, all reported directly after watching the intro and
+finale play slowly, to how `drawGrowingLink`'s calls in `drawIntro` and
+`drawEquivalentStatements` relate to the kernel circle/seed dot at their
+own destination end:
+
+- **The intro's link no longer visually crosses into the kernel set's
+  own circle.** `drawGrowingLink(stmtLineFrom, kernel, linkP, a)` used
+  to lerp all the way to `kernel` (the circle's *center*) regardless of
+  the circle's own current radius, so once the tip had traveled far
+  enough it was, for the rest of the chapter, drawn *inside* the
+  circle, heading toward its center among the `KERNEL_MODEL_POINTS`
+  dots -- reading as pointing at one specific point/model rather than
+  at the kernel (the whole set) itself. Fixed by capping the *progress*
+  passed to the lerp, not just the drawn result: `edgeProgress = clamp(1
+  - setRadius / toKernelDist, 0, 1)`, `cappedLinkP = min(linkP,
+  edgeProgress)` -- so the line itself stops growing exactly at the
+  circle's own current edge, then tracks that edge outward as the
+  circle blooms and back inward as it collapses (ch.2), reaching the
+  true center only once the circle has fully collapsed to the seed dot
+  itself (at which point edge and center are the same point anyway).
+  `kernelBloom`/`setRadius`/`setAlpha` were hoisted earlier in
+  `drawIntro` (they already existed, just below the link's own drawing
+  block before this) so the link's own capping calculation has the
+  circle's current radius available before it needs it.
+- **The tip's own traveling glow dot stops the instant the line reaches
+  that edge**, not just once `progress` reaches `1` (`drawGrowingLink`'s
+  own old rule) -- reported directly as confusable with the model-point
+  dots it now visually sits among/near otherwise. `drawGrowingLink`
+  gained an optional `showDot` parameter (defaults to the old `progress
+  < 1` rule when omitted, so the finale's own two calls -- which don't
+  land on a growing circle at all -- are unaffected); the intro's own
+  call passes `cappedLinkP >= linkP` (true exactly while the line
+  hasn't started clamping yet, i.e. is still genuinely approaching).
+  One-way per chapter-4/5 pass: once hidden, never reappears, since both
+  the line's own remaining distance to center and the circle's radius
+  only move toward each other from that instant on (until the collapse
+  phase, addressed by the capping formula's own symmetry, not by any
+  special-cased direction check).
+- **The finale's two links (`drawEquivalentStatements`) now start from
+  the seed dot's own edge, not its center**, aimed at each one's own
+  destination -- previously both lines emerged from the exact same
+  point (the center), reading as passing through the dot rather than
+  originating from it. Needed the seed dot's own *current* rendered
+  radius (it breathes and briefly grows, real-time -- see `renderDots`'
+  own seed-specific branch), factored out into a shared `seedRadius(t,
+  now)` helper (used by `renderDots` too now, replacing its own
+  duplicate copy of the same formula, so the two can't drift apart) and
+  a small `edgePointTowards(center, radius, target)` helper. Required
+  threading `now` through to `drawEquivalentStatements` (previously
+  only took `t`) -- `drawScene`'s own call site updated to match.
+
+Verified via a fine `t`-sweep through the intro's own link-growing
+chapter (screenshots at `t = 0.14, 0.15, 0.16, 0.17, ..., 0.22`):
+tip dot visible right up to first contact, gone the very next checked
+frame, with the line's own end sitting exactly on the circle's edge at
+every frame checked, including as the circle continues blooming past
+first contact and later collapses back toward the seed dot. Finale
+confirmed via cropped zooms (ImageMagick, not just eyeballing the full
+frame) at both mid-reveal and fully-settled -- both lines visibly
+originate at the dot's own glow boundary, not its center, in each
+frame. Full forward/backward scroll of the entire track, and a
+390\u00d7844 mobile check of both fixes: zero console errors beyond the
+standard harmless favicon 404.
+
 ## If you're picking this up fresh
 
 1. Diff the IBM-repo copy against the public-repo copy first (see "Repo /

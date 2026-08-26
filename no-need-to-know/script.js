@@ -159,6 +159,17 @@
     return a + (b - a) * t;
   }
 
+  // The point on the circle (center, radius) lying in the direction of
+  // `target` -- used to start a growing link exactly on a dot's own
+  // edge, aimed at wherever it's headed, rather than at the dot's
+  // center (see drawEquivalentStatements).
+  function edgePointTowards(center, radius, target) {
+    const dx = target.x - center.x;
+    const dy = target.y - center.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    return { x: center.x + (dx / dist) * radius, y: center.y + (dy / dist) * radius };
+  }
+
   function lerpColor(c1, c2, t) {
     return [lerp(c1[0], c2[0], t), lerp(c1[1], c2[1], t), lerp(c1[2], c2[2], t)];
   }
@@ -227,6 +238,7 @@
   const legendBodyEl = document.getElementById("legendBody");
 
   const grid = buildGrid();
+  const seedDot = grid.find((d) => d.isSeed);
   let board = { bx: 0, by: 0, bw: 0, bh: 0 };
   let pitch = 0;
   let dpr = window.devicePixelRatio || 1;
@@ -373,7 +385,14 @@
   // with a glowing leading tip while still in motion -- used for every
   // statement/kernel link in the piece (the intro's and the finale's) so
   // they all read as the same kind of connection, drawn the same way.
-  function drawGrowingLink(from, to, progress, alpha) {
+  // `showDot`, if explicitly passed, overrides the default "still
+  // visible until progress reaches 1" rule -- the intro's own link uses
+  // this to hide the tip's traveling dot once it reaches a growing
+  // circle at the destination (see drawIntro), since past that point it
+  // reads as one of the kernel's own model-point dots, not a moving
+  // line's leading edge. Left `undefined` (the default) at every other
+  // call site, so their own behavior is unchanged.
+  function drawGrowingLink(from, to, progress, alpha, showDot) {
     if (alpha <= 0 || progress <= 0) return;
     const tipX = lerp(from.x, to.x, progress);
     const tipY = lerp(from.y, to.y, progress);
@@ -385,7 +404,8 @@
     ctx.lineTo(tipX, tipY);
     ctx.stroke();
     ctx.restore();
-    if (progress < 1) drawGlow(tipX, tipY, pitch * 0.05, SEED_GLOW, alpha);
+    const dotVisible = showDot === undefined ? progress < 1 : showDot;
+    if (dotVisible) drawGlow(tipX, tipY, pitch * 0.05, SEED_GLOW, alpha);
   }
 
   // All label/caption text sizes were a flat `pitch * 0.16`, with no
@@ -513,6 +533,18 @@
     return { x: board.bx + (SEED_COL + 0.5) * pitch, y: board.by + (SEED_ROW + 0.5) * pitch };
   }
 
+  // The seed dot's own rendered radius at a given (t, now) -- the exact
+  // formula renderDots' own pass-2 branch uses for the seed specifically
+  // (base breathing wobble, then the further +15% growth once the rest
+  // of the grid has fallen away, CH.windowEnd..0.9). Factored out so
+  // drawEquivalentStatements (the finale) can start its own two links
+  // exactly on this circle's edge, rather than at its center, without
+  // duplicating -- and risking drifting from -- this formula.
+  function seedRadius(t, now) {
+    const breathe = 1 + 0.07 * Math.sin(now * 0.5 + seedDot.phase);
+    return seedDot.baseRadius * breathe * (1 + 0.15 * smoothstep(CH.windowEnd, 0.9, t));
+  }
+
   function drawIntro(t) {
     const stmt = statementPos();
     const kernel = seedPos();
@@ -540,23 +572,54 @@
       drawLabel(ALICE_STATEMENT, stmt.x, stmt.y, statementAppear * introAlpha * 0.9);
     }
 
-    // Ch.1: a link grows from the statement to its kernel, drawn after
-    // the label so its glowing tip is never hidden behind the text.
     const linkP = smoothstep(CH.statementEnd, CH.linkEnd, t);
-    if (linkP > 0 && introAlpha > 0) {
-      const a = introAlpha * (0.25 + 0.75 * statementAppear);
-      drawGrowingLink(stmtLineFrom, kernel, linkP, a);
-    }
 
     // ...blooming into the kernel: a set containing a few models, matching
     // how the paper itself draws a kernel (Figure 2(b)-(d)) -- then, once
     // the link has fully arrived (ch.2), collapsing back down into the
     // single point every later chapter builds on: this whole set is one
     // dot. Bloom-in and collapse share one radius formula so there is only
-    // ever one circle on screen, never two overlapping ones.
+    // ever one circle on screen, never two overlapping ones. Computed
+    // before the link below (not just before its own drawing block) since
+    // the link's own tip-dot visibility now depends on this circle's
+    // current radius too.
     const kernelBloom = smoothstep(0.3, 1, linkP);
     const setRadius = pitch * 1.6 * kernelBloom * (1 - collapseP);
     const setAlpha = kernelBloom * (1 - collapseP);
+
+    // Ch.1: a link grows from the statement to its kernel, drawn after
+    // the label so its glowing tip is never hidden behind the text. The
+    // line itself stops at the kernel set's own (growing) edge, not its
+    // center -- it's meant to point at the whole kernel, not at some
+    // arbitrary point inside it (which would misread as pointing at one
+    // specific model, the way the model-point dots inside the circle
+    // do). Implemented by capping the *progress* fed to the line's own
+    // lerp, not just clamping the drawn tip afterward, so the line
+    // itself literally stops growing there, rather than being clipped.
+    if (linkP > 0 && introAlpha > 0) {
+      const a = introAlpha * (0.25 + 0.75 * statementAppear);
+      const toKernelDist = Math.hypot(kernel.x - stmtLineFrom.x, kernel.y - stmtLineFrom.y) || 1;
+      // The progress value at which the *uncapped* lerp's own distance
+      // to the kernel center would exactly equal the circle's current
+      // radius -- i.e. exactly where the line meets the edge right now.
+      // Clamped to [0,1]: below 0.3 (before the circle starts blooming,
+      // setRadius = 0) this would be >1, correctly never capping yet.
+      const edgeProgress = clamp(1 - setRadius / toKernelDist, 0, 1);
+      const cappedLinkP = Math.min(linkP, edgeProgress);
+      // The tip's own traveling glow dot is a visual aid for the still-
+      // moving line, not a stand-in for one of the kernel's own model-
+      // point dots (drawn just below, inside this same circle) -- so it
+      // needs to stop the instant the line itself first reaches the
+      // kernel set's own growing circle (i.e. the instant capping
+      // actually starts biting). Past this instant the line's own end
+      // stays glued to the circle's edge for the rest of the animation
+      // (tracking it outward as it blooms, then back in as it collapses
+      // toward the final seed dot), so this is a one-way transition,
+      // never a dot that reappears once hidden.
+      const dotStillApproaching = cappedLinkP >= linkP;
+      drawGrowingLink(stmtLineFrom, kernel, cappedLinkP, a, dotStillApproaching);
+    }
+
     if (setAlpha > 0) {
       if (setRadius > pitch * 0.02) {
         ctx.save();
@@ -675,8 +738,10 @@
 
         if (d.isSeed) {
           // The seed brightens slightly as everything else falls away,
-          // then settles so the resting frame isn't still growing.
-          radius *= 1 + 0.15 * smoothstep(CH.windowEnd, 0.9, t);
+          // then settles so the resting frame isn't still growing --
+          // see seedRadius's own note for why this reads off that
+          // shared helper rather than its own copy of the formula.
+          radius = seedRadius(t, now);
         } else if (d.hashBin !== 0) {
           // Non-green kernels inside the window fade further...
           alpha *= 1 - 0.75 * smoothstep(CH.windowEnd, CH.windowEnd + 0.08, t);
@@ -785,14 +850,17 @@
   // just as well have reconstructed, placed east of the kernel rather
   // than south of it so the legend card never occludes it. Same kernel,
   // different words: the point made about equivalent sentences at the
-  // very top of the piece, now shown in reverse. There's no separate node
-  // circle at either end -- one circle for the statement and another for
-  // the kernel reads as more shapes than the diagram needs -- so each
-  // growing link simply emerges from close to its statement's own text.
-  function drawEquivalentStatements(t) {
+  // very top of the piece, now shown in reverse. No *new* node circle at
+  // either end -- the seed's own existing dot already is the kernel end,
+  // so each growing link starts right on that dot's own current edge
+  // (toward its own destination), not at its center, so the line reads
+  // as emerging *from* the kernel rather than passing through it -- and
+  // emerges from close to its statement's own text at the other end.
+  function drawEquivalentStatements(t, now) {
     const revealP = smoothstep(0.93, 0.97, t);
     if (revealP <= 0) return;
     const kernel = seedPos();
+    const r = seedRadius(t, now);
     const size = baseFontSize();
 
     ctx.save();
@@ -813,8 +881,12 @@
     drawLabel(ALICE_STATEMENT, aliceX, aliceY, revealP * 0.9);
     drawLabel(BOB_STATEMENT, bobX, bobY, revealP * 0.9);
 
-    drawGrowingLink(kernel, aliceFrom, revealP, revealP);
-    drawGrowingLink(kernel, bobFrom, revealP, revealP);
+    // Each link's own start point: the seed circle's edge, in the
+    // direction of its own destination -- not the shared center, which
+    // would make both lines emerge from underneath one another before
+    // fanning out, and would visibly cross through the seed dot itself.
+    drawGrowingLink(edgePointTowards(kernel, r, aliceFrom), aliceFrom, revealP, revealP);
+    drawGrowingLink(edgePointTowards(kernel, r, bobFrom), bobFrom, revealP, revealP);
   }
 
   function drawScene(t, now) {
@@ -823,7 +895,7 @@
     renderDots(t, now, rect);
     drawWindowRect(rect, now);
     drawCaptions(t, rect);
-    drawEquivalentStatements(t);
+    drawEquivalentStatements(t, now);
   }
 
   // ---- Top-level render -------------------------------------------------------
