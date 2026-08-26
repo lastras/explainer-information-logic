@@ -1,0 +1,72 @@
+:root {
+  --bg: #050208;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+}
+
+/* The scrub range. Height is large relative to the viewport so that a full
+   pass through all chapters corresponds to a comfortable amount of scroll
+   travel. The piece ends on the resting frame, holding there. */
+.scroll-track {
+  position: relative;
+  height: 600vh;
+  background: var(--bg);
+}
+
+.pinned {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* A caption card overlaid on the pinned graphic, near the bottom of the
+   viewport. Its heading/body text is swapped by script.js as t crosses
+   each chapter boundary, so the explanation progresses alongside the
+   graphic instead of arriving as one block of text after it. */
+.legend {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  transform: translateX(-50%);
+  width: min(560px, 86vw);
+  background: rgba(5, 2, 8, 0.78);
+  border: 1px solid rgba(184, 255, 250, 0.22);
+  border-radius: 12px;
+  padding: 1rem 1.25rem 1.15rem;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.legend h3 {
+  color: #9fe8db;
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+}
+
+.legend p {
+  color: #cdd3da;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  margin: 0;
+}
