@@ -953,6 +953,203 @@ new formula's worst single-step jump, at the identical angular
 resolution, drops to `0.0018` — a ~283x reduction, confirming the fix
 directly rather than just assuming it worked from the formula alone.
 
+## Legend copy overhaul; Alice's separate signal indicator removed in favor of a persistent yellow hinted-vertex highlight (latest session)
+
+Requested directly as a batch of copy edits across almost every
+pre-game and early-game legend card, plus two structural asks: drop
+the separate "Alice's signal" binary-code readout (judged redundant
+once the tetrahedron already has glowing, eventually-labeled
+vertices), and make the one vertex actually matching the current
+secret glow a distinct yellow, not just the plain `NEUTRAL` every
+vertex already used.
+
+### Copy changes
+
+Every `GAME_LEGEND_CHUNKS`/`GAME_PHASE_TEXT` heading and body from
+"Six doors, two that matter" through "The cheat sheet" was rewritten
+(a few headings renamed outright: "Alice has the scoop" \u2192 "Alice
+has the inside scoop"; "But you don't need all that" \u2192 "Shorten
+the message"; "Alice's signal" \u2192 "The shortest option"; "Play,
+blind" \u2192 "Play the game"; "The short list, made concrete" \u2192
+"The cheat sheet"). `GAME_PHASE_TEXT.hinted`'s own body was also
+rewritten as a *necessary follow-on*, not something separately
+requested: its old wording ("Match Alice's signal to the tetrahedron
+corner wearing that same code...") assumed the now-deleted numeric
+readout existed to match against; it now just says to open the doors
+touching the glowing corner, consistent with the new color-based
+mechanic. Every other reference to the old heading names throughout
+the file's own comments (`illustrativeHighlightPhase`,
+`isBoardVisible`, the `GAME_LEGEND_CHUNKS` header comment, the `CHG`
+object's own inline chapter notes) was updated too, so the comments
+don't silently drift from the actual copy.
+
+### `HINTED_VERTEX_COLOR` replaces the deleted signal readout
+
+`drawSignalIndicator`/`aliceSignalPos` (the standalone 2-bit binary
+code shown below the shape throughout gameplay, e.g. `"11"`) are
+deleted outright, not left disabled -- judged redundant now that the
+tetrahedron itself already has 4 glowing vertices, each eventually
+labeled with the same binary code once the cheat sheet is revealed. In
+their place, `drawGameBoard`'s own vertex loop now computes
+`isHintedVertex = cheatsheetRevealed && item.index === hintedGroup`
+and colors that one vertex's glow `HINTED_VERTEX_COLOR` (`#ffd400`, a
+clear yellow -- distinct from every other color already in use:
+`CORRECT_COLOR` green, `CATASTROPHIC_COLOR` red, `CANDIDATE_COLOR`
+blue, `SELECTED_DOOR_COLOR` white, `DOOR_NEUTRAL_COLOR` gray), while
+every other vertex keeps the plain `NEUTRAL` it always had. Unlike the
+old intro-only pulse (`isCheatsheetPulseActive()`, still separately
+gating the glow's own *size* breathing, unchanged), the yellow *color*
+persists for as long as `cheatsheetRevealed` is true, regardless of
+`roundResolved` -- it's the player's ongoing way to find the right
+corner every round, not just a first-reveal attention cue, so it
+shouldn't turn off the moment a round resolves and stay off until the
+pulse re-arms.
+
+`tallyPos()`'s own offset moved back in, from `0.68` to `0.34`
+(`TETRA_BOARD_RADIUS_MULT + X`) -- `0.68` existed specifically to
+clear the deleted readout's own footprint just above it; with that
+readout gone, the tally sits where the readout itself used to.
+
+### Verified
+
+Puppeteer, this session (scratch scripts in `/tmp/verify_gtd/`, not
+committed): legend text at every pre-game checkpoint read back
+correctly via `#legendHeading`/`#legendBody`; a full game-loop
+click-through (select all 6 doors via hit-testing computed offline
+from `TETRA_ALIGN_X/Y` after cancelling the auto-spin with a real,
+net-zero-displacement "there and back" drag -- see the auto-spin's own
+section above for why a fixed-angle offline computation needs the
+spin cancelled or waited out first) confirmed: zero yellow pixels on
+canvas before the cheat sheet is revealed, several hundred immediately
+after (one vertex's own glow, sized to its dot radius), and the legend
+correctly stepping `blind \u2192 cheatsheet \u2192 hinted` with the new
+copy at each stage. Viewport sweep (390\u00d7844, 360\u00d7740,
+900\u00d7600) confirmed the new, slightly longer "Play the game"/
+"Alice has the inside scoop" cards still never overlap the button row
+or run off the bottom of the viewport. Full forward/backward scroll of
+the entire track: zero console errors beyond the standard harmless
+favicon 404. Idle-static re-confirmed in the blind phase once the
+auto-spin settles (25s wait, covering its worst-case tail) -- no new
+continuous repaint was introduced by the color/copy changes.
+
+## Second copy pass: blind-first framing, thicker edges, "cheat sheet" renamed "code", the guarantee stated explicitly (latest session)
+
+A follow-on round of smaller, mostly-independent requests against the
+same "Guess the Door" chapters, in the order they came in:
+
+### "The shortest option" reworded to preview blind-first play
+
+Reported directly: the old closing line ("Let's play the game to
+demonstrate it") promised the *very next* thing you do demonstrates
+the 2-bit message -- but the next thing is actually "Play the game",
+pure blind guessing with *no* message at all. The mismatch mostly
+self-corrected (the next card immediately reframes it as "try blind,
+then get the code"), but the transition card itself shouldn't need the
+next card to fix its own over-promise. Reworded to preview the
+blind-then-coded structure directly: "It turns out 2 bits is the
+shortest message. Play blind first to feel how hard that is on your
+own \u2014 then reveal Alice's code and see the difference." (`2.00`
+also dropped to plain `2` -- the trailing zeros implied a precision
+this exact bit count doesn't need, unlike the genuinely-approximate
+`4.90`/`2.58` elsewhere.) Deliberately left `GAME_PHASE_TEXT.blind`
+("Play the game") itself untouched -- it's never visible at the same
+time as this transition card (one replaces the other on scroll), so
+this is sequential reinforcement, not simultaneous redundancy, and it
+does its own distinct job (actual in-game mechanic instructions, plus
+the reminder that a "reveal" button exists once a round resolves).
+
+### Wireframe edges thickened (`TETRA_EDGE_WIDTH_MULT`)
+
+Reported directly as hard to see on a low-brightness screen.
+`drawGrowingLink`'s own stroke width (`Math.max(1, unit * 0.02)`) was
+tuned for phase 1's thinner lines, at phase 1's own `unit` scale --
+reused as-is for the tetrahedron's edges, which at a typical desktop
+board width came out to only ~1.4px, already alpha-dimmed by
+`* 0.55 * edgeFog` (down to as low as ~0.3 effective alpha at the
+fog floor). Rather than touch the shared helper's own behavior (used
+by 7 other, phase-1-only call sites, all untouched), it took an
+optional `widthMult` parameter (default `1`, so every existing call
+site's rendering is byte-for-byte unchanged) and the tetrahedron's own
+edge-drawing call now passes `TETRA_EDGE_WIDTH_MULT = 1.8`.
+
+### Closing "Less is more" card: dropped the abstract restatement, added the concrete "less" side
+
+First cut: the card's own middle clause -- "a short, pre-agreed list
+lets Alice send less, yet leaves Bob knowing more" -- was removed
+entirely (colon before it became a period instead), jumping straight
+from naming the theorem to the concrete payoff ("Here, the code hands
+you three safe doors..."). That abstract restatement did no real work
+the concrete sentence around it wasn't already doing more
+convincingly.
+
+Second pass: the surviving sentence only ever demonstrated the
+"more" half of "Less is More" (3 safe doors vs. the 1 strictly
+needed) -- never the "less" half concretely. Appended ", and with
+fewer bits than would be required to specify the prize door exactly"
+so the closing card names *both* halves in one place, tying directly
+back to the 2.58-bit cost "Shorten the message" already established
+for naming the prize door outright. ("winning door," as first
+drafted, was swapped for "prize door" to match the piece's own
+door/prize/dud vocabulary throughout.)
+
+### "Cheat sheet" renamed "code" throughout
+
+A deliberate terminology collapse, requested directly: the fictional
+distinction between "Alice's code" (the 2-bit message) and "the cheat
+sheet" (the codebook that decodes it) wasn't earning its keep as two
+separate terms. Renamed everywhere user-facing: the button
+(`#gameRevealBtn`, "Reveal the cheat sheet" \u2192 "Reveal the code"),
+`GAME_PHASE_TEXT.cheatsheet`'s own heading ("The cheat sheet" \u2192
+"The code"). `GAME_PHASE_TEXT.blind`'s own closing line needed a
+reword, not just a search-and-replace: "Once you're ready for Alice's
+code, reveal the cheat sheet" would have become "...for Alice's code,
+reveal the code" -- the same word meaning two different things in one
+sentence. Now: "How often can you win? When you're ready, reveal the
+code." (Internal names -- `cheatsheetRevealed`, `isCheatsheetPulseActive`,
+`CHEATSHEET_PULSE_*` -- deliberately untouched, same precedent the
+door/prize/dud rename already set for `carDoor`/`zonkDoor`/
+`CORRECT_COLOR`: only user-facing text changes, not the variables
+describing the mechanism.)
+
+### "The code" card: the guarantee stated explicitly, plus "this round" -- and a real mobile overlap this caused, then fixed
+
+Two content additions to `GAME_PHASE_TEXT.cheatsheet`'s own body, each
+requested separately: first, the actual mathematical guarantee behind
+the mechanic (some corner always connects to the prize but not the
+dud, for *any* possible prize/dud pair) plus the reason 2 bits
+suffices (four corners, `log2(4) = 2`) -- both inserted right after
+"...message from Alice." Second, "in this round" added to "The one
+she sent you is the yellow glowing corner," specifically to flag that
+this corner changes on every "Play again" (a fresh `randomizeSecret()`
+call), since nothing else in the card said so.
+
+This card has a documented history of being the piece's own
+length-sensitive one (see the earlier "Legend copy" entry above, and
+the even earlier mobile-overflow entry in the main bug list) -- and
+sure enough, re-verifying after both additions landed caught a real
+regression at 360\u00d7740 specifically: the taller legend pushed the
+DOM button row upward (both share one bottom-anchored flex column),
+far enough that it now overlapped the tally text ("Wins 0 \u00b7
+Losses 1"), which is drawn on canvas at a fixed shape-relative
+position with no awareness of the flex column's own height. Measured
+precisely, not eyeballed: `tallyPos()`'s own y-coordinate computed
+analytically alongside the button row's actual `getBoundingClientRect()`
+-- a genuine 27px overlap at that viewport, healthy 41-94px clearance
+at every other tested size (900\u00d7700, 390\u00d7844, 900\u00d7600).
+Fixed by trimming the added sentences' own wording (not reverting the
+content): "Note that for any given location of the prize and dud,
+Alice can always find a corner that connects to the prize door but not
+to the dud" became "For any prize and dud, some corner always connects
+to the prize but not the dud"; "Only 2 bits are needed to specify any
+corner" became "Only 2 bits specify any corner"; "connecting to that
+corner" became "touching that corner" (also matching
+`GAME_PHASE_TEXT.hinted`'s own existing wording). Re-measured with the
+same script that caught it: the 360\u00d7740 clearance went from -27px
+to +41px, every other viewport unaffected. **Any future addition to
+this specific card's body should be re-checked at 360\u00d7740 the same
+way** -- it's now sitting close enough to its own limit at that
+viewport that it doesn't take much to tip it over again.
+
 This session went through several rounds of trying to formalize
 "kernel"/"query" for the game's own intro, each abandoned after a real,
 specific problem was found — reported here so the same dead ends aren't

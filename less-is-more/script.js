@@ -244,14 +244,17 @@
     // sentence fade-outs already use elsewhere in this file).
     doorsEnd: 0.1333, // 2: "six doors, two that matter" -- prize, dud; the
     // 6 door-cubes, on the tetrahedron's own edges, fade in
-    scoopEnd: 0.2167, // 3: Alice has the scoop, but a limited channel
+    scoopEnd: 0.2167, // 3: Alice has the inside scoop, but a limited channel
     obviousEnd: 0.3, // 4: the most obvious option -- tell Bob
     // everything outright, ~4.9 bits
-    enoughEnd: 0.4, // 5: the realization -- Bob only needs a safe set
+    enoughEnd: 0.4, // 5: shorten the message -- Bob only needs a safe set
     // that includes the prize; naming the prize door alone already
-    // works, ~2.58 bits, but there's something better still
-    signalEnd: 0.5, // 6: just 2 bits, actually -- Alice's 2-dot signal
-    // fades in near the board
+    // works, ~2.58 bits, but there's something even shorter still
+    signalEnd: 0.5, // 6: the shortest option -- 2 bits. No longer where a
+    // separate signal readout used to fade in near the board
+    // (drawSignalIndicator, since deleted -- see HINTED_VERTEX_COLOR's
+    // own note); now only the start of playAppear's own fade-in window
+    // for the tally/banner, below.
     playArrive: 0.5833, // 7: "Play, blind" -- the board stops following t
     // from here on, becoming draggable and tappable at once, with no
     // upper bound (see isGameInteractive's own note below): there is
@@ -383,9 +386,9 @@
   // the whole time; only the legend text changes, plus one small,
   // targeted exception -- the two fixed illustrative doors' own
   // prize/dud color-and-word highlight (see illustrativeHighlightPhase),
-  // dramatizing exactly what "Alice has the scoop"/"The most obvious
-  // option" and "But you don't need all that"/"Alice's signal" already
-  // say in prose, concretely, on the shape itself. Echoes phase 1's own
+  // dramatizing exactly what "Alice has the inside scoop"/"The most
+  // obvious option" and "Shorten the message"/"The shortest option"
+  // already say in prose, concretely, on the shape itself. Echoes phase 1's own
   // vocabulary ("short list") once the real mechanism is reached,
   // rather than introducing new terms for the same idea.
   const GAME_LEGEND_CHUNKS = [
@@ -398,31 +401,31 @@
       from: CHG.transitionEnd,
       heading: "Six doors, two that matter",
       body:
-        "Each of these six cubes is a door. Behind one is a prize; behind another, a dud. You'll walk away with the prize only if you open the door that has it \u2014 and never open the one with the dud. The shape they're sitting on matters too, for a reason that comes later.",
+        "Each of these six cubes is a door. Behind one is a prize; behind another is a dud; the rest are empty. You can open as many as you want, but your goal is to find the prize without opening the door with the dud.",
     },
     {
       from: CHG.doorsEnd,
-      heading: "Alice has the scoop",
+      heading: "Alice has the inside scoop",
       body:
-        "Alice knows exactly which door hides the prize, and which hides the dud. The catch: she only has a short message she can send back to you.",
+        "Alice wants you to win. She knows which door hides the prize, and which hides the dud. The problem is\u2014she can only send you a short message. We'll discover how few bits that message can cost.",
     },
     {
       from: CHG.scoopEnd,
       heading: "The most obvious option",
       body:
-        "Alice could just tell you everything she knows: which door has the prize, and which has the dud. That's one specific fact out of 30 possibilities \u2014 about 4.9 bits.",
+        "Alice could just tell you everything she knows. There are thirty possible combinations of prize, dud, and empty doors. This message costs 4.90 bits to send.",
     },
     {
       from: CHG.obviousEnd,
-      heading: "But you don't need all that",
+      heading: "Shorten the message",
       body:
-        "All you actually need is a set of doors that's safe to open \u2014 no dud among them \u2014 guaranteed to include the prize. Just naming the prize door alone already does that: one of six, about 2.58 bits. But there's something even better.",
+        "A better option is for Alice to tell you which door has the prize. There are only six doors, so this message only costs 2.58 bits. But there's something even shorter.",
     },
     {
       from: CHG.enoughEnd,
-      heading: "Alice's signal",
+      heading: "The shortest option",
       body:
-        "Alice's signal is just 2 bits, shown here as its own binary code. She broadcasts it continuously throughout the game \u2014 but it means nothing on its own until you also have a shared list to decode it.",
+        "It turns out 2 bits is the shortest message. Play blind first to feel how hard that is on your own \u2014 then reveal Alice's code and see the difference.",
     },
   ];
 
@@ -436,18 +439,18 @@
   // whole time simply gets its 4 vertices labeled.
   const GAME_PHASE_TEXT = {
     blind: {
-      heading: "Play, blind",
-      body: "Pick some doors, then open them. Find the one with the prize; avoid the one with the dud.",
+      heading: "Play the game",
+      body:
+        "Pick as many doors as you want, then open them. Try to find the one with the prize and avoid the dud. How often can you win? When you're ready, reveal the code.",
     },
     cheatsheet: {
-      heading: "The short list, made concrete",
+      heading: "The code",
       body:
-        "Click the three doors touching the glowing corner to win every time. Each corner carries one of Alice's codes; each door sits where two corners meet. Whatever the prize and dud turn out to be, some corner always touches the prize but not the dud.",
+        "Each corner of the tetrahedron is a possible message from Alice. For any prize and dud, some corner always connects to the prize but not the dud. Only 2 bits specify any corner. The one she sent you this round is the yellow glowing corner. Select the three doors touching that corner to win every time.",
     },
     hinted: {
       heading: "Play, with the code",
-      body:
-        "Match Alice's signal to the tetrahedron corner wearing that same code, then open the three doors touching that corner. Do that every round, and you win every time.",
+      body: "Open the three doors touching the glowing corner every round to win every time.",
     },
   };
 
@@ -458,7 +461,7 @@
   const SUMMARY_TEXT = {
     heading: "Less is more",
     body:
-      "This is the \u201CLess is More\u201D theorem, worked out concretely: a short, pre-agreed list lets Alice send less, yet leaves Bob knowing more. Here, the code hands you three safe doors at once \u2014 one the true prize \u2014 more than the single door strictly needed.",
+      "This is the \u201CLess is More\u201D theorem, worked out concretely. Here, the code hands you three safe doors at once \u2014 one the true prize \u2014 more than the single door strictly needed, and with fewer bits than would be required to specify the prize door exactly.",
   };
 
   // ---- Palette -------------------------------------------------------------
@@ -499,6 +502,13 @@
   // sit further away from it on the brightness scale for that contrast
   // to actually read, not closer to white itself.
   const DOOR_NEUTRAL_COLOR_HEX = "#7f8a8d";
+  // The one vertex actually matching the current secret (hintedGroup),
+  // once the cheat sheet has been revealed -- rendered in this distinct
+  // color instead of NEUTRAL_HEX, so "the corner Alice sent" reads by
+  // color alone. Replaces the old, separate binary-code signal readout
+  // (drawSignalIndicator, since deleted) as the way a player identifies
+  // which corner is meant -- see drawGameBoard's own isHintedVertex.
+  const HINTED_VERTEX_COLOR_HEX = "#ffd400";
 
   // ---- Board -----------------------------------------------------------------
   const BOARD_ASPECT = 7 / 9;
@@ -509,9 +519,9 @@
 
   // Phase 2's own board anchor/scale -- see gameToBoard() below. Tuned
   // (like CENTER_FY/UNIT_DIVISOR above) by screenshotting the actual
-  // composition: high enough to leave room above for the win/loss banner
-  // and Alice's signal, and below for the tally line and the cheat
-  // sheet's own two rows of mini-boards. 0.27 left the banner clipped off
+  // composition: high enough to leave room above for the win/loss banner,
+  // and below for the tally line and the cheat sheet's own two rows of
+  // mini-boards. 0.27 left the banner clipped off
   // the top of the viewport on wide-but-short boards (900x600 and
   // similar, where board.by is 0) -- reported directly. Solved for
   // directly against that exact case (see the banner/tally arithmetic in
@@ -561,6 +571,7 @@
   const CATASTROPHIC_COLOR = hexToRgb(CATASTROPHIC_COLOR_HEX);
   const SELECTED_DOOR_COLOR = hexToRgb(SELECTED_DOOR_COLOR_HEX);
   const DOOR_NEUTRAL_COLOR = hexToRgb(DOOR_NEUTRAL_COLOR_HEX);
+  const HINTED_VERTEX_COLOR = hexToRgb(HINTED_VERTEX_COLOR_HEX);
 
   function rgbCss(c, alpha) {
     return `rgba(${c[0] | 0}, ${c[1] | 0}, ${c[2] | 0}, ${alpha})`;
@@ -1321,7 +1332,7 @@
   // (CHG.doorsEnd) onward, with no upper bound -- gates the drag-to-
   // rotate grab zone (layoutTetraGrabZone). Deliberately *earlier* than
   // isGameInteractive(): the shape is a real, concrete object the whole
-  // "six doors, two that matter" .. "Alice's signal" walk-through is
+  // "six doors, two that matter" .. "the shortest option" walk-through is
   // *about*, and reported directly as feeling wrong to not be able to
   // rotate and inspect while reading those cards, even though the game
   // itself (door-tapping, the secret, the round) doesn't start until
@@ -1337,14 +1348,15 @@
   // Which of the two fixed illustrative doors (see ILLUSTRATIVE_PRIZE_
   // DOOR/ILLUSTRATIVE_DUD_DOOR above) drawGameBoard should highlight
   // right now, keyed to the same tGame boundaries as GAME_LEGEND_CHUNKS:
-  // 'both' spans "Alice has the scoop" and "The most obvious option"
-  // (doorsEnd..obviousEnd) -- both cards are about Alice knowing/telling
-  // the *full* fact, prize and dud alike; 'prizeOnly' spans "But you
-  // don't need all that" and "Alice's signal" (obviousEnd..playArrive)
-  // -- both are about the *narrower* fact (the prize alone) already
-  // being enough. 'none' everywhere else, including from playArrive on,
-  // where the real per-door selected/opened/car/zonk coloring takes
-  // over completely and these two doors become perfectly ordinary.
+  // 'both' spans "Alice has the inside scoop" and "The most obvious
+  // option" (doorsEnd..obviousEnd) -- both cards are about Alice
+  // knowing/telling the *full* fact, prize and dud alike; 'prizeOnly'
+  // spans "Shorten the message" and "The shortest option"
+  // (obviousEnd..playArrive) -- both are about the *narrower* fact (the
+  // prize alone) already being enough. 'none' everywhere else, including
+  // from playArrive on, where the real per-door selected/opened/car/zonk
+  // coloring takes over completely and these two doors become perfectly
+  // ordinary.
   function illustrativeHighlightPhase(tGame) {
     if (tGame >= CHG.doorsEnd && tGame < CHG.obviousEnd) return "both";
     if (tGame >= CHG.obviousEnd && tGame < CHG.playArrive) return "prizeOnly";
@@ -1502,14 +1514,14 @@
   // with a glowing leading tip while still in motion -- adapted from
   // piece one (which only ever used one color); here, a link's color
   // matches the kernel it points to, same as everything else.
-  function drawGrowingLink(from, to, progress, alpha, color) {
+  function drawGrowingLink(from, to, progress, alpha, color, widthMult) {
     if (alpha <= 0 || progress <= 0) return;
     const c = color || SEED_GLOW;
     const tipX = lerp(from.x, to.x, progress);
     const tipY = lerp(from.y, to.y, progress);
     ctx.save();
     ctx.strokeStyle = rgbCss(c, alpha * 0.5);
-    ctx.lineWidth = Math.max(1, unit * 0.02);
+    ctx.lineWidth = Math.max(1, unit * 0.02) * (widthMult || 1);
     ctx.beginPath();
     ctx.moveTo(from.x, from.y);
     ctx.lineTo(tipX, tipY);
@@ -2291,6 +2303,11 @@
 
   const TETRA_SCALE_MULT = 0.62; // gameUnit -> pixels-per-local-3D-unit
   const TETRA_CUBE_HALF = 0.16; // in the same local units as DOOR_LOCAL_3D
+  // Multiplies drawGrowingLink's own default stroke width (tuned for
+  // phase 1's thinner lines) for the tetrahedron's wireframe edges only
+  // -- reported directly as hard to see at that default weight on a
+  // low-brightness screen.
+  const TETRA_EDGE_WIDTH_MULT = 1.8;
   // How much of `nz`'s own range, right above the back-face-culling
   // threshold (0), a cube face spends fading out (see drawTetraCube's
   // own `edgeFade`) rather than popping instantly out of existence.
@@ -2300,25 +2317,28 @@
   const TETRA_FACE_EDGE_FADE = 0.15;
 
   // A consistent "how big does this shape look" anchor, independent of
-  // its current rotation -- for aliceSignalPos/tallyPos below, which need
-  // to sit a fixed-feeling distance from the shape no matter how it's
-  // currently oriented. Deliberately smaller than TETRA_HIT_RADIUS_MULT
-  // (below, intentionally oversized for a forgiving drag/tap target).
-  // Checked in Node across a spread of rotation angles: a door's own
-  // typical projected radius is ~0.5-0.6 (close to the old flat board's
-  // GAME_DOOR_RADIUS, 0.5 -- this constant's own spiritual predecessor);
-  // a vertex can swing out substantially farther at some angles (up to
-  // ~1.1, in the worst case of a vertex rotated to point straight at the
-  // signal/tally's own fixed position) -- but sizing for that worst case
-  // pushed the signal clean off the top of a modest-height viewport at
-  // the shape's own default resting pose (caught by screenshot: a
-  // literally-invisible, clipped label). Tuned instead for the common
-  // case -- comfortably outside a door's own typical extent, close to
-  // the old, proven-good GAME_DOOR_RADIUS-based position -- accepting
-  // that a vertex/cube can occasionally swing out far enough, at some
-  // reachable drag angles, to sit close to (rarely, slightly under) the
-  // signal or tally text. A purely cosmetic tradeoff at an infrequent
-  // orientation beats a hard, always-clipped failure at the common one.
+  // its current rotation -- for resultBannerPos/tallyPos below, which
+  // need to sit a fixed-feeling distance from the shape no matter how
+  // it's currently oriented. Deliberately smaller than
+  // TETRA_HIT_RADIUS_MULT (below, intentionally oversized for a
+  // forgiving drag/tap target). Checked in Node across a spread of
+  // rotation angles: a door's own typical projected radius is ~0.5-0.6
+  // (close to the old flat board's GAME_DOOR_RADIUS, 0.5 -- this
+  // constant's own spiritual predecessor); a vertex can swing out
+  // substantially farther at some angles (up to ~1.1, in the worst case
+  // of a vertex rotated to point straight at the banner/tally's own
+  // fixed position) -- but sizing for that worst case once pushed a
+  // now-deleted signal readout (drawSignalIndicator, which used to sit
+  // just above the tally, at this same anchor) clean off the top of a
+  // modest-height viewport at the shape's own default resting pose
+  // (caught by screenshot: a literally-invisible, clipped label). Tuned
+  // instead for the common case -- comfortably outside a door's own
+  // typical extent, close to the old, proven-good GAME_DOOR_RADIUS-based
+  // position -- accepting that a vertex/cube can occasionally swing out
+  // far enough, at some reachable drag angles, to sit close to (rarely,
+  // slightly under) the banner or tally text. A purely cosmetic tradeoff
+  // at an infrequent orientation beats a hard, always-clipped failure at
+  // the common one.
   const TETRA_BOARD_RADIUS_MULT = 0.55;
 
   // One shaded, flat-lit cube, standing for door `doorIndex`, drawn in
@@ -2500,11 +2520,15 @@
     // canvas strokes don't support a per-point gradient without real
     // extra work, and an edge's own two ends are close enough in depth
     // that one averaged value reads as continuous, not stepped).
+    // TETRA_EDGE_WIDTH_MULT thickens these beyond drawGrowingLink's own
+    // default width (tuned for phase 1's thinner lines) -- reported
+    // directly as hard to see on a low-brightness screen at that
+    // default weight.
     for (const [a, b] of DOOR_VERTEX_PAIRS) {
       const pa = vertexBoardPos(a);
       const pb = vertexBoardPos(b);
       const edgeFog = depthFogMult((pa.depth + pb.depth) / 2);
-      drawGrowingLink(pa, pb, 1, alpha * 0.55 * edgeFog, CANDIDATE_COLOR);
+      drawGrowingLink(pa, pb, 1, alpha * 0.55 * edgeFog, CANDIDATE_COLOR, TETRA_EDGE_WIDTH_MULT);
     }
 
     // Vertices and door-cubes share a single back-to-front draw order
@@ -2520,15 +2544,25 @@
       if (item.isVertex) {
         const p = item.pos;
         const dotR = Math.max(gameUnit * 0.05, 4);
+        // The one vertex actually matching the current secret
+        // (hintedGroup), once the cheat sheet is revealed -- rendered
+        // in HINTED_VERTEX_COLOR (yellow) instead of the plain NEUTRAL
+        // every other vertex uses, so "the corner Alice sent" reads by
+        // color alone (see that constant's own note; replaces the old,
+        // separate binary-code signal readout). Persists for as long as
+        // cheatsheetRevealed is true, not just while isCheatsheetPulseActive()
+        // -- the color is the player's ongoing way to find the right
+        // corner every round, not just an intro cue.
+        const isHintedVertex = cheatsheetRevealed && item.index === hintedGroup;
         // The cheat sheet's own intro pulse (see CHEATSHEET_PULSE_SPEED
-        // above, and isCheatsheetPulseActive()): only the one vertex
-        // actually matching the current secret (hintedGroup), only
-        // while the current round is still untouched -- everything else
-        // about this vertex (its label's own gap, the wireframe edges
-        // meeting it) still reads off the *unpulsed* dotR, so only the
-        // glow itself visibly breathes, not the label's own position.
+        // above, and isCheatsheetPulseActive()): the hinted vertex's own
+        // glow additionally grows and shrinks, only while the current
+        // round is still untouched -- everything else about this vertex
+        // (its label's own gap, the wireframe edges meeting it) still
+        // reads off the *unpulsed* dotR, so only the glow itself
+        // visibly breathes, not the label's own position.
         let glowR = dotR;
-        if (isCheatsheetPulseActive() && item.index === hintedGroup) {
+        if (isCheatsheetPulseActive() && isHintedVertex) {
           const phase = (lastFrameNowMs / 1000) * CHEATSHEET_PULSE_SPEED;
           // A raised cosine (`(1 - cos(phase)) / 2`), not a plain sine:
           // ranges over [0, 1], not [-1, 1], so glowR only ever grows
@@ -2539,7 +2573,8 @@
           const wave = (1 - Math.cos(phase)) / 2;
           glowR = dotR * (1 + CHEATSHEET_PULSE_AMPLITUDE * wave);
         }
-        drawGlow(p.x, p.y, glowR, NEUTRAL, alpha * depthFogMult(p.depth), 2.4);
+        const vertexGlowColor = isHintedVertex ? HINTED_VERTEX_COLOR : NEUTRAL;
+        drawGlow(p.x, p.y, glowR, vertexGlowColor, alpha * depthFogMult(p.depth), 2.4);
         if (cheatsheetRevealed) {
           // anchor: "bottom" -- not the default top-anchor -- so the gap
           // above the dot is measured to the label's own *bottom* edge,
@@ -2604,15 +2639,14 @@
     }
   }
 
-  // Above the shape -- the same anchor aliceSignalPos() itself used to
-  // use, before the signal moved below (see that function's own note).
+  // Above the shape, a fixed distance out via TETRA_BOARD_RADIUS_MULT.
   // Extracted into its own named function so the win/loss banner's
-  // position stays independent of wherever the signal now sits. Grew
-  // briefly to 0.46 (from its original 0.36) while a floating "Play
-  // again" button also needed to fit in this same space -- that button
-  // moved back to the bottom control row instead (see
-  // syncGameControls's own note), so this reverted to the original
-  // 0.36, which is all the heading + explanatory reason line
+  // position stays independent of the tally's own, separate anchor
+  // below the shape. Grew briefly to 0.46 (from its original 0.36)
+  // while a floating "Play again" button also needed to fit in this
+  // same space -- that button moved back to the bottom control row
+  // instead (see syncGameControls's own note), so this reverted to the
+  // original 0.36, which is all the heading + explanatory reason line
   // (drawResultBanner, below) ever needed on their own.
   function resultBannerPos() {
     const c = gameToBoard(0, 0);
@@ -2654,35 +2688,17 @@
     });
   }
 
-  // Alice's 2-bit signal, shown directly as its own binary code -- the
-  // same encoding the tetrahedron's own vertex labels use once the cheat
-  // sheet is revealed (see drawGameBoard), rather than a separate
-  // filled/hollow-dot vocabulary invented just for this. `cy` is the
-  // text's own vertical center.
-  function drawSignalIndicator(cx, cy, groupIndex, sizeMult, alpha, color) {
-    if (alpha <= 0 || groupIndex < 0) return;
-    const size = baseFontSize() * sizeMult;
-    drawLabel(groupIndex.toString(2).padStart(2, "0"), cx, cy - size / 2, alpha, "center", { sizeMult, color });
-  }
-
-  // Below the shape now, not above (see the closing "Alice's signal"
-  // note in GAME_LEGEND_CHUNKS/GAME_PHASE_TEXT for why this is the
-  // signal the player is meant to keep reading off, round after round):
-  // reads better sitting near the doors it's actually about, rather
-  // than floating above the whole board where the win/loss banner
-  // (resultBannerPos, above) now sits alone. Also drawn larger now (see
-  // drawGameScene's own sizeMult passed to drawSignalIndicator).
-  function aliceSignalPos() {
-    const c = gameToBoard(0, 0);
-    return { x: c.x, y: c.y + gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.34) };
-  }
-
-  // Pushed further below the signal's own new position, not overlapping
-  // it -- the signal's own larger font (see drawGameScene) now takes
-  // more vertical room than the old, smaller signal it replaced.
+  // Below the shape -- a fixed distance out via TETRA_BOARD_RADIUS_MULT,
+  // mirroring resultBannerPos's own anchor above the shape. Used to sit
+  // further out (0.68) to clear a separate binary-code signal readout
+  // that used to occupy this space just above the tally (drawSignalIndicator,
+  // since deleted -- see HINTED_VERTEX_COLOR's own note for why: the
+  // hinted vertex's color now carries that same information directly on
+  // the shape itself). With that readout gone, the tally moved back in
+  // to 0.34, the readout's own old position.
   function tallyPos() {
     const c = gameToBoard(0, 0);
-    return { x: c.x, y: c.y + gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.68) };
+    return { x: c.x, y: c.y + gameUnit * (TETRA_BOARD_RADIUS_MULT + 0.34) };
   }
 
   // A persistent win/loss tally -- plain drawLabel text, no separate DOM
@@ -2703,14 +2719,9 @@
     // shape's own live rotation) is read directly, always, with no
     // scroll-driven sweep to arbitrate with.
     const boardAppear = smoothstep(CHG.transitionEnd, CHG.doorsEnd, tGame);
-    const signalAppear = smoothstep(CHG.enoughEnd, CHG.signalEnd, tGame);
     const playAppear = smoothstep(CHG.signalEnd, CHG.playArrive, tGame);
 
     drawGameBoard(boardAppear, tGame);
-    if (signalAppear > 0) {
-      const sp = aliceSignalPos();
-      drawSignalIndicator(sp.x, sp.y, hintedGroup, 1.3, signalAppear, NEUTRAL);
-    }
     if (playAppear > 0) {
       drawTally(playAppear);
       drawResultBanner(playAppear);
