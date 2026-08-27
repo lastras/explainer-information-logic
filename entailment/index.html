@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What a Sentence Means</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Tall scroll track: its height (minus one viewport) is the scrub range.
+     The pinned inner div sticks to the top of the viewport while the user
+     scrolls through it, driving t = 0..1 for the canvas animation. A
+     legend card is overlaid on the graphic and its heading/body text is
+     swapped by script.js as t crosses each chapter boundary -- NYT-style
+     captions that progress alongside the pinned graphic, rather than one
+     block of prose parked after it. -->
+<div class="scroll-track" id="scrollTrack">
+  <div class="pinned">
+    <canvas id="scene"></canvas>
+    <div class="legend" id="legend">
+      <h3 id="legendHeading"></h3>
+      <p id="legendBody"></p>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
