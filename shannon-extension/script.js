@@ -55,14 +55,12 @@
     {
       from: 0,
       heading: "A cataclysm, and one sentence",
-      body:
-        "In his famous Lectures on Physics, Feynman imagined a cataclysmic situation in which all scientific knowledge is destroyed, and a sentence carrying the most information in the fewest words needs to be chosen for transmission to future generations of beings.",
+      body: "A thought experiment from Feynman\u2019s own Lectures on Physics.",
     },
     {
       from: CH.introEnd,
       heading: "Feynman\u2019s answer",
-      body:
-        "\u201CAll things are made of atoms\u2014little particles that move around in perpetual motion, attracting each other when they are a little distance apart, but repelling upon being squeezed into one another.\u201D",
+      body: "His own choice for that single sentence.",
     },
     {
       from: CH.quoteEnd,
@@ -78,9 +76,9 @@
     },
     {
       from: CH.extendEnd,
-      heading: "Why so few words can imply a science",
+      heading: "Why so few words can go so far",
       body:
-        "Reasoning amplifies the effective content of what\u2019s transmitted. That\u2019s how Feynman\u2019s short sentence quietly carries an enormous amount of knowledge.",
+        "Reasoning amplifies the effective content of what\u2019s transmitted: the same short sentence can leave a reasoning receiver knowing more than its own bits alone would suggest.",
     },
   ];
 

@@ -75,7 +75,7 @@
       from: CH.windowEnd,
       heading: "Ruling out confounders",
       body:
-        "Bob keeps only candidates that both match Alice's hash bin and are consistent with what he already knows. Confounders \u2014 other candidates that happen to share Alice's hash bin \u2014 get rejected because they fail that second test.",
+        "Bob keeps only candidates that both match Alice's hash bin and entail what he already knows. Confounders \u2014 other candidates that happen to share Alice's hash bin \u2014 get rejected because they fail that second test.",
     },
     {
       from: 0.95,

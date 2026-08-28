@@ -12,8 +12,8 @@ forecast at a different time — Alice's check was the more recent one, and
 Bob knows it.
 
 - **Ordinary ignorance**: Bob's own (earlier) forecast gave a wider
-  temperature range, but one that's still consistent with — contains —
-  Alice's later, more precise one. Bob's belief is outdated, not wrong.
+  temperature range, but one that still contains Alice's later, more
+  precise one. Bob's belief is outdated, not wrong.
 - **Incorrect information**: in a second scenario, Bob's earlier forecast
   told a completely different story, sharing no temperature with Alice's
   current one. Bob isn't just behind now; he's flatly wrong.
