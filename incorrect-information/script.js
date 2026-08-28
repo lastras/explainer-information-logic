@@ -173,19 +173,18 @@
   // shared half-width function*. R and R' both use kernelHalf(p_r)
   // verbatim: at any given p_r, Bob's ignorant belief and Bob's wrong
   // belief are *exactly* the same size. Rather than resizing one
-  // kernel relative to the other to avoid the two bands' capsules
-  // touching on screen, the *centers* are just far enough apart
-  // instead: S sits at a fixed, narrow interval, centered on R's own
-  // center, so at every width R is centered on -- and therefore
-  // contains -- S; R' is centered far enough away that even at its own
-  // widest (p_r = PR_MAX), including the extra width drawBand's own
-  // rounded end-caps add (a constant, on top of the true interval --
-  // see drawBand's own note), it never reaches S or R. The minimum gap
-  // that guarantees the two capsules' end-caps themselves never touch
-  // is bandHeight/pxPerDegree -- solved directly: ~12.6° at this
-  // piece's own constants (viewport-independent, since bw cancels out
-  // of that ratio). The ~19° gap below (R's widest upper bound, 52.8°,
-  // to R''s widest lower bound, 72.2°) is a healthy margin over that.
+  // kernel relative to the other to avoid the two bands touching on
+  // screen, the *centers* are just far enough apart instead: S sits at
+  // a fixed, narrow interval, centered on R's own center, so at every
+  // width R is centered on -- and therefore contains -- S; R' is
+  // centered far enough away that even at its own widest (p_r =
+  // PR_MAX) it never reaches S or R. Since drawBand's own rendered
+  // edge now lands exactly on the true interval (no added padding --
+  // see its own note), any positive gap between two bands' true
+  // intervals is already enough to keep them from visibly touching;
+  // the ~19° gap below (R's widest upper bound, 52.8°, to R''s widest
+  // lower bound, 72.2°) is a comfortable margin, not a load-bearing
+  // minimum.
   const TEMP_MIN = 0;
   const TEMP_MAX = 112;
   const S_CENTER = 40;
@@ -381,27 +380,28 @@
   // blend there, distinct from the pure single-color territory either
   // one has on its own.
   //
-  // The rounded end-caps add a *constant* `height` of extra width on
-  // top of the true interval, rather than a floor that *replaces* the
-  // true width once it gets small. That distinction matters: a floor
-  // makes any two sufficiently narrow bands render at the exact same
-  // fixed size regardless of their real difference -- which is exactly
-  // what made R look like it had already shrunk to match S's own size
-  // well before p_r had actually reached p_s (confirmed directly: R's
-  // true half-width was still ~50% bigger than S's at the point they
-  // looked identical on screen). Adding a constant instead of flooring
-  // means the straight segment between the two end-caps is always
-  // *exactly* the true interval width -- so any real difference between
-  // two bands' sizes stays visible, however small both get; the shape
-  // only degrades gracefully to a plain circle (never disappears) as
-  // that true width goes to zero, rather than ever discarding it.
+  // The band's own *outer, rendered edge* -- not the end-cap's own
+  // center -- lands exactly on [loTemp, hiTemp]: `roundRectPath` is
+  // handed the true interval's own pixel width directly (no added
+  // padding), and its own radius clamp (`Math.min(r, w/2, h/2)`)
+  // shrinks the corner rounding automatically once that width gets
+  // narrower than `height`, rather than letting a fixed-radius cap
+  // bulge outward past the true boundary on either side. An earlier
+  // version instead centered each semicircular cap *on* loTemp/hiTemp
+  // and let its own radius (height/2) extend past them -- so the
+  // visible band was up to a full `height` wider than the interval it
+  // was supposed to represent (confirmed directly: for Alice's own
+  // narrow 6-degree kernel, that padding alone was roughly 2x the true
+  // width). The shape still degrades gracefully as the true width goes
+  // to zero -- shrinking toward a thin sliver at *exactly* zero width,
+  // never a circle wider than the (near-)zero interval it stands for.
   function drawBand(loTemp, hiTemp, y, height, color, alpha, opts) {
     if (alpha <= 0.005) return;
     opts = opts || {};
     const x0 = tempToX(loTemp);
     const x1 = tempToX(hiTemp);
-    const w = Math.max(x1 - x0, 0) + height;
-    const x = (x0 + x1) / 2 - w / 2;
+    const w = Math.max(x1 - x0, 0);
+    const x = x0;
     ctx.save();
     roundRectPath(x, y - height / 2, w, height, height / 2);
     ctx.fillStyle = rgbCss(color, alpha * (opts.fillAlphaMult != null ? opts.fillAlphaMult : 0.4));
