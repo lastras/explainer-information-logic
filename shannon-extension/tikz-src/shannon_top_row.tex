@@ -1,0 +1,68 @@
+% ---------------------------------------------------------------------------
+% Standalone TikZ source, recolored/adapted from the paper's own Figure 1
+% (content/paper-PNAS-final/fig01_shannon_model_extension_standalone.tex) --
+% just the top row (Shannon's classical model), in this explainer's own
+% "classical" cyan. Compiles to shannon_top_row.pdf, then converted to
+% shannon_top_row.svg via pdftocairo -svg (see README.md in this directory
+% for the exact build commands).
+% ---------------------------------------------------------------------------
+\documentclass[border=2pt]{standalone}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+% Sans-serif, matching the legend card's own font stack (-apple-system,
+% ..., Helvetica, Arial, sans-serif) -- LaTeX's own default (Computer
+% Modern) is a serif face, visibly mismatched against the HTML card
+% sitting right next to these diagrams. `helvet` is a standard, always-
+% bundled psnfss package (no extra font install needed).
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{tikz}
+
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{shapes.symbols}
+\usetikzlibrary{dsp}
+\usetikzlibrary{chains}
+\usetikzlibrary{arrows,chains,matrix,positioning,scopes,patterns,decorations.pathreplacing,calc,positioning,fit,decorations.pathreplacing,calligraphy}
+
+\definecolor{classical}{RGB}{184,255,250}
+
+\begin{document}
+\normalfont
+\begin{tikzpicture}[color=classical, text=classical]
+
+	\matrix[row sep=2.5mm, column sep=5mm](A)
+	{	tm
+
+		\node[dspnodeopen,dsp/label=left] (mm00) {message};  &
+		\node[dspsquare]         (mm01) {f};     &
+            \node[coordinate,label=bits] (mm02) {}; &
+		\node[dspsquare]          (mm03) {g};     &
+		\node[dspnodeopen,dsp/label=right]          (mm03p5) {recovered message};     &
+  \\
+  };
+  % Invisible helper nodes: dsp/label text is not tracked by TikZ's
+  % automatic bounding box, so standalone would otherwise crop it off (same
+  % fix as the published figure's own standalone source). Deliberately
+  % phantom-sized to shannon_bottom_row.tex's own (longer) "logic
+  % sentence"/"recovered logic sentence" labels, not this row's own
+  % shorter "message"/"recovered message" -- script.js scales and
+  % left-aligns both images assuming their bounding boxes reserve the
+  % *same* margin around the shared f/g boxes; sizing each row's own
+  % margin to only its own label text (as this used to do) left "f" and
+  % "g" landing at genuinely different x positions between the two rows,
+  % since "message" and "logic sentence" aren't the same width (confirmed
+  % directly, not just anticipated -- this was a real misalignment, not a
+  % cosmetic one).
+  \node[anchor=east, text opacity=0, xshift=-\dspoperatorlabelspacing] at (mm00.west) {\phantom{logic sentence}};
+  \node[anchor=west, text opacity=0, xshift=\dspoperatorlabelspacing] at (mm03p5.east) {\phantom{recovered logic sentence}};
+
+	\begin{scope}[start chain]
+		\chainin (mm00);
+		\chainin (mm01) [join=by dspconn];
+		\chainin (mm03) [join=by dspconn];
+		\chainin (mm03p5) [join=by dspconn];
+        \end{scope}
+
+\end{tikzpicture}
+\end{document}

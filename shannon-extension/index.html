@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>No Need to Know</title>
+<title>Reasoning Amplifies Information</title>
 <link rel="stylesheet" href="style.css">
 </head>
-<body class="piece-no-need-to-know">
+<body class="piece-shannon-extension">
 
 <!-- Tall scroll track: its height (minus one viewport) is the scrub range.
      The pinned inner div sticks to the top of the viewport while the user
@@ -18,6 +18,14 @@
 <div class="scroll-track" id="scrollTrack">
   <div class="pinned">
     <canvas id="scene"></canvas>
+    <!-- The two pipeline diagrams themselves: real vector graphics
+         compiled from (recolored) TikZ sources -- see tikz-src/README.md
+         -- rather than hand-drawn canvas shapes. script.js positions
+         these (matching the canvas's own "board" letterboxing) and
+         reveals each with a left-to-right clip-path wipe as t crosses
+         its own chapter. -->
+    <img id="topRow" class="diagram-row" src="assets/shannon_top_row.svg" alt="" />
+    <img id="bottomRow" class="diagram-row" src="assets/shannon_bottom_row.svg" alt="" />
     <div class="legend" id="legend">
       <h3 id="legendHeading"></h3>
       <p id="legendBody"></p>

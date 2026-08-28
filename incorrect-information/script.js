@@ -27,6 +27,17 @@
 (function () {
   "use strict";
 
+  // Scoped DOM lookups: standalone, this piece is the only script on the
+  // page, so document.getElementById would be fine. Embedded in the
+  // combined blog page (content/blog-combined/), multiple copies of these
+  // same ids (#scene, #legend, etc.) exist in one document -- one per
+  // piece -- so document.currentScript.closest(".piece-block") scopes
+  // every lookup to *this* piece's own wrapper. Falls back to `document`
+  // when there's no such ancestor (i.e. the standalone page), reproducing
+  // today's standalone behavior exactly.
+  const root = (document.currentScript && document.currentScript.closest(".piece-block")) || document;
+  function $(id) { return root.querySelector("#" + id); }
+
   // ---- Chapter boundaries (t ranges) --------------------------------------
   const CH = {
     ignoranceEnd: 0.22, // 0: recap -- S's kernel nested inside a merely-weaker R
@@ -223,13 +234,13 @@
   }
 
   // ---- Canvas / DOM setup --------------------------------------------------
-  const track = document.getElementById("scrollTrack");
+  const track = $("scrollTrack");
   const pinned = track.querySelector(".pinned");
-  const canvas = document.getElementById("scene");
+  const canvas = $("scene");
   const ctx = canvas.getContext("2d");
-  const legend = document.getElementById("legend");
-  const legendHeadingEl = document.getElementById("legendHeading");
-  const legendBodyEl = document.getElementById("legendBody");
+  const legend = $("legend");
+  const legendHeadingEl = $("legendHeading");
+  const legendBodyEl = $("legendBody");
 
   const BOARD_ASPECT = 7 / 9;
   const UNIT_DIVISOR = 9;
@@ -855,6 +866,16 @@
 
   // ---- Main loop --------------------------------------------------------------
   let lastInnerHeight = window.innerHeight;
+  // Set by root.__pauseAnim/__resumeAnim (below) so an embedding page can
+  // stop this piece's rAF loop while it's scrolled out of view, and restart
+  // it when it scrolls back in. Attached to `root` (this piece's own
+  // wrapper when embedded, `document` when standalone -- see the `root`/`$`
+  // note near the top of this file), not a bare `window` global, so
+  // multiple pieces loaded on the same page each get their own isolated
+  // pair of hooks instead of the last-loaded piece's clobbering the rest.
+  // Nothing calls these unless a parent page does, so standalone behavior
+  // (this piece opened on its own) is unaffected.
+  let framePaused = false;
   function frame() {
     if (window.innerHeight !== lastInnerHeight) {
       lastInnerHeight = window.innerHeight;
@@ -863,11 +884,18 @@
     const t = computeT();
     render(t);
     updateLegend(t);
-    requestAnimationFrame(frame);
+    if (!framePaused) requestAnimationFrame(frame);
   }
 
   window.addEventListener("resize", resize);
   resize();
   updateLegend(0);
   requestAnimationFrame(frame);
+
+  root.__pauseAnim = function () { framePaused = true; };
+  root.__resumeAnim = function () {
+    if (!framePaused) return;
+    framePaused = false;
+    requestAnimationFrame(frame);
+  };
 })();

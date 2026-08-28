@@ -1,0 +1,80 @@
+% ---------------------------------------------------------------------------
+% Standalone TikZ source, recolored/adapted from the paper's own Figure 1
+% (content/paper-PNAS-final/fig01_shannon_model_extension_standalone.tex) --
+% the "extension" row. Unlike the paper's own figure (which continues
+% rightward: logic sentence -> f -> g -> ...deductive machinery -> deduced
+% facts, all in one wide horizontal line), this version keeps only the
+% four stages shared with the top row horizontal -- using the *exact same*
+% matrix column-sep/node styles as shannon_top_row.tex, so that shared
+% prefix is pixel-identical to the top row's own message->f->g->recovered
+% message once both are rendered at the same scale -- then turns the two
+% genuinely new stages (deductive machinery, deduced facts) *downward*
+% instead of further rightward. This keeps the whole diagram's own width
+% close to the top row's own (rather than roughly double it), which is
+% what actually didn't fit on a phone screen in the first version.
+% Compiles to shannon_bottom_row.pdf, then converted to
+% shannon_bottom_row.svg via pdftocairo -svg (see README.md in this
+% directory for the exact build commands).
+% ---------------------------------------------------------------------------
+\documentclass[border=2pt]{standalone}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+% Sans-serif, matching the legend card's own font stack (-apple-system,
+% ..., Helvetica, Arial, sans-serif) -- LaTeX's own default (Computer
+% Modern) is a serif face, visibly mismatched against the HTML card
+% sitting right next to these diagrams. `helvet` is a standard, always-
+% bundled psnfss package (no extra font install needed).
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage{tikz}
+
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{shapes.symbols}
+\usetikzlibrary{dsp}
+\usetikzlibrary{chains}
+\usetikzlibrary{arrows,chains,matrix,positioning,scopes,patterns,decorations.pathreplacing,calc,positioning,fit,decorations.pathreplacing,calligraphy}
+
+\definecolor{classical}{RGB}{184,255,250}
+\definecolor{newstage}{RGB}{232,162,59}
+
+\begin{document}
+\normalfont
+\begin{tikzpicture}[color=classical, text=classical]
+
+	% Identical column-sep/row-sep and node styles to shannon_top_row.tex's
+	% own single row -- this is what guarantees the shared prefix lands at
+	% the exact same physical (pt) positions as the top row's own, not
+	% merely a visually-similar approximation.
+	\matrix[row sep=2.5mm, column sep=5mm](A)
+	{	tm
+
+		\node[dspnodeopen,dsp/label=left] (mm00) {logic sentence};  &
+		\node[dspsquare]         (mm01) {f};     &
+            \node[coordinate,label=bits] (mm02) {}; &
+		\node[dspsquare]          (mm03) {g};     &
+		\node[dspnodeopen,dsp/label=right]          (mm03p5) {recovered logic sentence};     &
+  \\
+  };
+  \node[anchor=east, text opacity=0, xshift=-\dspoperatorlabelspacing] at (mm00.west) {logic sentence};
+  \node[anchor=west, text opacity=0, xshift=\dspoperatorlabelspacing] at (mm03p5.east) {recovered logic sentence};
+
+	\begin{scope}[start chain]
+		\chainin (mm00);
+		\chainin (mm01) [join=by dspconn];
+		\chainin (mm03) [join=by dspconn];
+		\chainin (mm03p5) [join=by dspconn];
+        \end{scope}
+
+  % ---- The genuinely new part: turns downward from here, rather than
+  % continuing rightward -- so the whole diagram's own width stays close
+  % to the top row's own, using vertical (scroll-friendly) space instead.
+  \node[dspcloud, below=9mm of mm03p5, color=newstage, text=newstage] (machinery) {deductive\\machinery};
+  \draw[dspconn, draw=newstage] (mm03p5.south) -- (machinery.north);
+
+  \node[dspnodeopen, right=14mm of machinery, color=newstage, text=newstage, dsp/label=below] (facts) {deduced facts};
+  \draw[dspconn, draw=newstage] (machinery.east) -- (facts.west);
+  \node[anchor=north, text opacity=0, yshift=-\dspoperatorlabelspacing] at (facts.south) {deduced facts};
+
+\end{tikzpicture}
+\end{document}

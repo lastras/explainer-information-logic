@@ -2,7 +2,7 @@
   --bg: #050208;
 }
 
-* {
+.piece-less-is-more * {
   box-sizing: border-box;
 }
 
@@ -29,13 +29,13 @@ html, body {
    narrower gap turned out easy to scroll past accidentally -- see
    CHG.tetraStart's own note. The piece now ends on a *new* resting frame
    -- the tetrahedron reveal's own closing card -- past that point. */
-.scroll-track {
+.piece-less-is-more .scroll-track {
   position: relative;
   height: 1200vh;
   background: var(--bg);
 }
 
-.pinned {
+.piece-less-is-more .pinned {
   position: sticky;
   top: 0;
   height: 100vh;
@@ -47,7 +47,7 @@ html, body {
   justify-content: center;
 }
 
-#scene {
+.piece-less-is-more #scene {
   display: block;
   width: 100%;
   height: 100%;
@@ -86,13 +86,13 @@ html, body {
    -- including everywhere else on the canvas outside this one small
    circle -- gets 100% ordinary native scrolling, momentum and all, with
    zero custom code standing in for it. */
-.tetra-grab-zone {
+.piece-less-is-more .tetra-grab-zone {
   position: absolute;
   border-radius: 50%;
   touch-action: none;
 }
 
-.tetra-grab-zone[hidden] {
+.piece-less-is-more .tetra-grab-zone[hidden] {
   display: none;
 }
 
@@ -102,7 +102,7 @@ html, body {
    same 6% from the viewport bottom, and a visible button row simply
    grows the stack upward, directly above the legend, instead of being
    positioned independently of the legend's own (variable) height. */
-.bottom-stack {
+.piece-less-is-more .bottom-stack {
   position: absolute;
   left: 50%;
   bottom: 6%;
@@ -118,7 +118,7 @@ html, body {
    viewport. Its heading/body text is swapped by script.js as t crosses
    each chapter boundary, so the explanation progresses alongside the
    graphic instead of arriving as one block of text after it. */
-.legend {
+.piece-less-is-more .legend {
   width: 100%;
   background: rgba(5, 2, 8, 0.78);
   border: 1px solid rgba(184, 255, 250, 0.22);
@@ -128,14 +128,14 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
-.legend h3 {
+.piece-less-is-more .legend h3 {
   color: #9fe8db;
   font-size: 1rem;
   font-weight: 600;
   margin: 0 0 0.4rem;
 }
 
-.legend p {
+.piece-less-is-more .legend p {
   color: #cdd3da;
   font-size: 0.92rem;
   line-height: 1.55;
@@ -154,7 +154,7 @@ html, body {
    else here (the `display: flex` row) is only ever "Open selected" or
    "Play again," never both, so a plain centered row is all that
    needs to be. */
-.game-controls {
+.piece-less-is-more .game-controls {
   position: relative;
   display: flex;
   justify-content: center;
@@ -169,7 +169,7 @@ html, body {
    row would stay visible the entire time -- caught by screenshotting the
    very first frame, where it visibly sat on top of the legend body text
    long before the game becomes interactive. */
-.game-controls[hidden] {
+.piece-less-is-more .game-controls[hidden] {
   display: none;
 }
 
@@ -183,7 +183,7 @@ html, body {
    .game-controls's own top edge, i.e. directly above the primary
    button row, growing further upward from there as needed -- never
    downward into the legend card directly below. */
-#gameRevealBtn {
+.piece-less-is-more #gameRevealBtn {
   position: absolute;
   bottom: 100%;
   left: 50%;
@@ -191,7 +191,7 @@ html, body {
   margin-bottom: 0.6rem;
 }
 
-.game-btn {
+.piece-less-is-more .game-btn {
   pointer-events: auto;
   cursor: pointer;
   background: rgba(5, 2, 8, 0.78);
@@ -204,17 +204,17 @@ html, body {
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.game-btn:hover:not(:disabled) {
+.piece-less-is-more .game-btn:hover:not(:disabled) {
   background: rgba(184, 255, 250, 0.12);
   border-color: rgba(184, 255, 250, 0.6);
 }
 
-.game-btn:disabled {
+.piece-less-is-more .game-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }
 
-.game-btn-primary {
+.piece-less-is-more .game-btn-primary {
   color: #9fe8db;
   border-color: rgba(184, 255, 250, 0.55);
 }
@@ -232,7 +232,7 @@ html, body {
    shifted the visible button sideways by several dozen px, measured
    directly, not just eyeballed. 132px is "Open selected"'s own natural
    width (measured at this font-size), rounded up slightly. */
-#gameOpenBtn,
-#gameNewRoundBtn {
+.piece-less-is-more #gameOpenBtn,
+.piece-less-is-more #gameNewRoundBtn {
   min-width: 132px;
 }

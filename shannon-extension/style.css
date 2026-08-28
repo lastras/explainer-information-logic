@@ -2,7 +2,7 @@
   --bg: #050208;
 }
 
-.piece-no-need-to-know * {
+.piece-shannon-extension * {
   box-sizing: border-box;
 }
 
@@ -15,13 +15,13 @@ html, body {
 /* The scrub range. Height is large relative to the viewport so that a full
    pass through all chapters corresponds to a comfortable amount of scroll
    travel. The piece ends on the resting frame, holding there. */
-.piece-no-need-to-know .scroll-track {
+.piece-shannon-extension .scroll-track {
   position: relative;
   height: 600vh;
   background: var(--bg);
 }
 
-.piece-no-need-to-know .pinned {
+.piece-shannon-extension .pinned {
   position: sticky;
   top: 0;
   height: 100vh;
@@ -33,17 +33,28 @@ html, body {
   justify-content: center;
 }
 
-.piece-no-need-to-know #scene {
+.piece-shannon-extension #scene {
   display: block;
   width: 100%;
   height: 100%;
 }
 
+/* The two pipeline-diagram SVGs. Positioned/sized in script.js's own
+   resize() (matching the canvas's "board" letterboxing), not here --
+   these base rules just establish the positioning context and the
+   left-to-right reveal mechanics (clip-path, set per-frame from t). */
+.piece-shannon-extension .diagram-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
 /* A caption card overlaid on the pinned graphic, near the bottom of the
    viewport. Its heading/body text is swapped by script.js as t crosses
    each chapter boundary, so the explanation progresses alongside the
-   graphic instead of arriving as one block of text after it. */
-.piece-no-need-to-know .legend {
+   graphic instead of arriving as one block of prose parked after it. */
+.piece-shannon-extension .legend {
   position: absolute;
   left: 50%;
   bottom: 6%;
@@ -57,14 +68,14 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
-.piece-no-need-to-know .legend h3 {
+.piece-shannon-extension .legend h3 {
   color: #9fe8db;
   font-size: 1rem;
   font-weight: 600;
   margin: 0 0 0.4rem;
 }
 
-.piece-no-need-to-know .legend p {
+.piece-shannon-extension .legend p {
   color: #cdd3da;
   font-size: 0.92rem;
   line-height: 1.55;

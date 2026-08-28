@@ -1,0 +1,134 @@
+:root {
+  /* Same dark background every one of the four inlined pieces already
+     uses (--bg in each explainer's own style.css) -- the whole article
+     now shares it, rather than alternating light prose against dark
+     interactive panels, so there's no seam/color-jump at a piece's edge
+     regardless of where a scroll happens to land. */
+  --bg: #050208;
+  --ink: #eef1f4;
+  --ink-light: #a7b0bd;
+  --accent: #9fe8db;
+  --rule: rgba(159, 232, 219, 0.18);
+  --content-width: 680px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+/* No scroll-snap here, and no scroll-repositioning script anywhere on this
+   page (see script.js's own note). Both were tried, in this file's own
+   earlier history, as ways to stop a piece's own pinned graphic from
+   settling half on/off screen -- a problem that came entirely from
+   embedding each piece in a fixed-height (90vh) <iframe>, shorter than
+   its own internal sticky-pinned graphic's full 100vh. Now that each
+   piece's own real markup is inlined at its own real height (see
+   index.html's own note), that problem doesn't exist to begin with: each
+   piece's `.pinned` element (100vh, position: sticky) fills the viewport
+   by construction for the entirety of its own scroll-track, the same way
+   it already does when that piece is opened standalone. Nothing needs to
+   snap or reposition anything. */
+html {
+  background: var(--bg);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.6;
+}
+
+/* Reading column shared by the headline, lede, and every framing
+   paragraph between pieces -- narrow and centered, the way editorial
+   long-form articles are typically set. */
+.prose {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.masthead {
+  padding: 4rem 0 1.5rem;
+}
+
+h1 {
+  font-size: 2.5rem;
+  line-height: 1.15;
+  margin: 0 0 1rem;
+  color: #fff;
+}
+
+.subhead {
+  font-size: 1.25rem;
+  color: var(--ink-light);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.lede p {
+  font-size: 1.15rem;
+}
+
+.prose p {
+  margin: 0 0 1.4rem;
+  font-size: 1.08rem;
+}
+
+.prose a {
+  color: var(--accent);
+  text-decoration-color: var(--rule);
+  text-underline-offset: 2px;
+}
+
+.prose a:hover {
+  text-decoration-color: currentColor;
+}
+
+h2 {
+  font-size: 1.6rem;
+  margin: 0 0 1rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--rule);
+  color: var(--accent);
+}
+
+.closing {
+  padding-bottom: 5rem;
+}
+
+/* Each inlined piece breaks out of the reading column to full viewport
+   width -- the only thing this page's own CSS needs to say about a
+   piece-block at all. Everything else (the sticky-pinned graphic, the
+   scroll-track's own 600vh/1200vh height, the legend card, the game
+   controls in "Less is More") is governed entirely by that piece's own
+   style.css (linked in <head>, prefixed .piece-<name> so it only ever
+   matches inside that piece's own section here). */
+.piece-block {
+  margin: 2.5rem calc(50% - 50vw) 2.5rem;
+  width: 100vw;
+  background: var(--bg);
+}
+
+@media (max-width: 480px) {
+  .masthead {
+    padding: 2.5rem 0 1rem;
+  }
+
+  h1 {
+    font-size: 1.9rem;
+  }
+
+  .subhead {
+    font-size: 1.05rem;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+  }
+}

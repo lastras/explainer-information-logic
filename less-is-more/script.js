@@ -93,6 +93,17 @@
 (function () {
   "use strict";
 
+  // Scoped DOM lookups: standalone, this piece is the only script on the
+  // page, so document.getElementById would be fine. Embedded in the
+  // combined blog page (content/blog-combined/), multiple copies of these
+  // same ids (#scene, #legend, etc.) exist in one document -- one per
+  // piece -- so document.currentScript.closest(".piece-block") scopes
+  // every lookup to *this* piece's own wrapper. Falls back to `document`
+  // when there's no such ancestor (i.e. the standalone page), reproducing
+  // today's standalone behavior exactly.
+  const root = (document.currentScript && document.currentScript.closest(".piece-block")) || document;
+  function $(id) { return root.querySelector("#" + id); }
+
   // ---- Chapter boundaries (t ranges), per the storyboard -----------------
   // Note the order: the second, independent scenario (ch.5) arrives, and
   // the "short pre-agreed list serves many scenarios at once" argument is
@@ -1247,9 +1258,9 @@
   }
 
   // ---- Canvas / DOM setup --------------------------------------------------
-  const track = document.getElementById("scrollTrack");
+  const track = $("scrollTrack");
   const pinned = track.querySelector(".pinned");
-  const canvas = document.getElementById("scene");
+  const canvas = $("scene");
   // `let`, not `const`: drawScene() below temporarily points this at an
   // offscreen canvas for exactly as long as it takes to render phase 1's
   // own content, so it can be faded out as a single composited image
@@ -1265,13 +1276,13 @@
   // its fade-out. Sized to match `canvas` exactly (see resize() below).
   const legacyCanvas = document.createElement("canvas");
   const legacyCtx = legacyCanvas.getContext("2d");
-  const legendHeadingEl = document.getElementById("legendHeading");
-  const legendBodyEl = document.getElementById("legendBody");
-  const gameControlsEl = document.getElementById("gameControls");
-  const gameOpenBtn = document.getElementById("gameOpenBtn");
-  const gameRevealBtn = document.getElementById("gameRevealBtn");
-  const gameNewRoundBtn = document.getElementById("gameNewRoundBtn");
-  const tetraGrabZone = document.getElementById("tetraGrabZone");
+  const legendHeadingEl = $("legendHeading");
+  const legendBodyEl = $("legendBody");
+  const gameControlsEl = $("gameControls");
+  const gameOpenBtn = $("gameOpenBtn");
+  const gameRevealBtn = $("gameRevealBtn");
+  const gameNewRoundBtn = $("gameNewRoundBtn");
+  const tetraGrabZone = $("tetraGrabZone");
 
   const tileGrid = buildTileGrid();
 
@@ -2907,6 +2918,16 @@
   // perfectly static whenever scrolling stops *and* the spin isn't
   // currently active, and scrubbing up/down is always smooth. --------------
   let lastInnerHeight = window.innerHeight;
+  // Set by root.__pauseAnim/__resumeAnim (below) so an embedding page can
+  // stop this piece's rAF loop while it's scrolled out of view, and restart
+  // it when it scrolls back in. Attached to `root` (this piece's own
+  // wrapper when embedded, `document` when standalone -- see the `root`/`$`
+  // note near the top of this file), not a bare `window` global, so
+  // multiple pieces loaded on the same page each get their own isolated
+  // pair of hooks instead of the last-loaded piece's clobbering the rest.
+  // Nothing calls these unless a parent page does, so standalone behavior
+  // (this piece opened on its own) is unaffected.
+  let framePaused = false;
   function frame(now) {
     // A direct check, not just the 'resize' listener below: on mobile,
     // the browser's own address bar shows/hides *in response to*
@@ -2932,7 +2953,7 @@
     const pulseActive = isCheatsheetPulseActive();
     if (t !== lastT || spinChanged || pulseActive) render(t);
     updateLegend(t);
-    requestAnimationFrame(frame);
+    if (!framePaused) requestAnimationFrame(frame);
   }
 
   // ---- Guess the Door: interaction -- tap a door, or drag to rotate ------
@@ -3135,4 +3156,11 @@
   resize();
   updateLegend(0);
   requestAnimationFrame(frame);
+
+  root.__pauseAnim = function () { framePaused = true; };
+  root.__resumeAnim = function () {
+    if (!framePaused) return;
+    framePaused = false;
+    requestAnimationFrame(frame);
+  };
 })();
